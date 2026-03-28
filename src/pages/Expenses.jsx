@@ -1,0 +1,1649 @@
+import { useEffect, useMemo, useRef, useState } from "react";
+import axios from "axios";
+import {
+  Wallet,
+  Plus,
+  Trash2,
+  Receipt,
+  TrendingUp,
+  Layers3,
+  Upload,
+  FileSpreadsheet,
+  FileText,
+  Save,
+  AlertTriangle,
+  ShieldCheck,
+  Target,
+  Pencil,
+  X,
+  Check,
+  Search,
+  ArrowUpDown,
+} from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { API_BASE } from "../config/api";
+
+function Expenses() {
+  const API = `${API_BASE}/expenses`;
+  const IMPORT_CATEGORIES = ["want", "need", "saving", "uncategorized"];
+  const MANUAL_CATEGORIES = [
+    "General",
+    "Food",
+    "Travel",
+    "Bills",
+    "Shopping",
+    "Health",
+    "Education",
+  ];
+  const HISTORY_CATEGORIES = [...IMPORT_CATEGORIES, ...MANUAL_CATEGORIES];
+
+  const fileInputRef = useRef(null);
+
+  const emptyForm = {
+    title: "",
+    amount: "",
+    category: "General",
+    date: "",
+  };
+
+  const emptyEditForm = {
+    title: "",
+    amount: "",
+    category: "General",
+    date: "",
+  };
+
+  const [expenses, setExpenses] = useState([]);
+  const [salaryData, setSalaryData] = useState(null);
+  const [form, setForm] = useState(emptyForm);
+  const [loading, setLoading] = useState(false);
+
+  const [editingExpenseId, setEditingExpenseId] = useState(null);
+  const [editForm, setEditForm] = useState(emptyEditForm);
+  const [updatingExpenseId, setUpdatingExpenseId] = useState(null);
+
+  const [historySearch, setHistorySearch] = useState("");
+  const [historyCategoryFilter, setHistoryCategoryFilter] = useState("all");
+  const [historySort, setHistorySort] = useState("latest");
+
+  const [importFile, setImportFile] = useState(null);
+  const [importType, setImportType] = useState("csv");
+  const [importLoading, setImportLoading] = useState(false);
+  const [importSaving, setImportSaving] = useState(false);
+  const [importError, setImportError] = useState("");
+  const [importSuccess, setImportSuccess] = useState("");
+  const [importedTransactions, setImportedTransactions] = useState([]);
+
+  const fetchExpensesAndSalary = async () => {
+    try {
+      setLoading(true);
+
+      const results = await Promise.allSettled([
+        axios.get(API),
+        axios.get(`${API_BASE}/salary`),
+      ]);
+
+      const expenseRes = results[0];
+      const salaryRes = results[1];
+
+      setExpenses(
+        expenseRes.status === "fulfilled" && Array.isArray(expenseRes.value.data)
+          ? expenseRes.value.data
+          : []
+      );
+
+      setSalaryData(
+        salaryRes.status === "fulfilled" ? salaryRes.value.data || null : null
+      );
+    } catch (err) {
+      console.log("Expense/salary fetch error:", err);
+      setExpenses([]);
+      setSalaryData(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchExpensesAndSalary();
+  }, []);
+
+  const handleChange = (e) => {
+    setForm((prev) => ({
+      ...prev,
+      [e.target.name]: e.target.value,
+    }));
+  };
+
+  const handleEditFormChange = (e) => {
+    setEditForm((prev) => ({
+      ...prev,
+      [e.target.name]: e.target.value,
+    }));
+  };
+
+  const handleAddExpense = async (e) => {
+    e.preventDefault();
+
+    try {
+      if (!form.title.trim()) {
+        alert("Enter expense title");
+        return;
+      }
+
+      if (!form.amount || Number(form.amount) <= 0) {
+        alert("Enter valid amount");
+        return;
+      }
+
+      const payload = {
+        title: form.title.trim(),
+        amount: Number(form.amount),
+        category: form.category || "General",
+        date: form.date || Date.now(),
+      };
+
+      const res = await axios.post(API, payload);
+      alert(res.data.message || "Expense added successfully");
+      setForm(emptyForm);
+      fetchExpensesAndSalary();
+    } catch (err) {
+      console.log("Add expense error:", err);
+      alert(err.response?.data?.message || "Failed to add expense");
+    }
+  };
+
+  const handleDeleteExpense = async (id) => {
+    try {
+      await axios.delete(`${API}/${id}`);
+      setExpenses((prev) => prev.filter((item) => item._id !== id));
+    } catch (err) {
+      console.log("Delete expense error:", err);
+      alert("Failed to delete expense");
+    }
+  };
+
+  const startEditExpense = (item) => {
+    setEditingExpenseId(item._id);
+    setEditForm({
+      title: item.title || "",
+      amount: item.amount || "",
+      category: item.category || "General",
+      date: item.date ? String(item.date).slice(0, 10) : "",
+    });
+  };
+
+  const cancelEditExpense = () => {
+    setEditingExpenseId(null);
+    setEditForm(emptyEditForm);
+  };
+
+  const handleSaveExpense = async (id) => {
+    try {
+      if (!editForm.title.trim()) {
+        alert("Title is required");
+        return;
+      }
+
+      if (!editForm.amount || Number(editForm.amount) <= 0) {
+        alert("Enter valid amount");
+        return;
+      }
+
+      setUpdatingExpenseId(id);
+
+      const res = await axios.patch(`${API}/${id}`, {
+        title: editForm.title.trim(),
+        amount: Number(editForm.amount),
+        category: editForm.category,
+        date: editForm.date || new Date().toISOString().slice(0, 10),
+      });
+
+      const updatedExpense = res.data?.expense;
+
+      if (updatedExpense) {
+        setExpenses((prev) =>
+          prev.map((item) => (item._id === id ? updatedExpense : item))
+        );
+      }
+
+      setEditingExpenseId(null);
+      setEditForm(emptyEditForm);
+    } catch (err) {
+      console.log("Update expense error:", err);
+      alert(err.response?.data?.message || "Failed to update expense");
+    } finally {
+      setUpdatingExpenseId(null);
+    }
+  };
+
+  const handleImportFileChange = (e) => {
+    const file = e.target.files?.[0] || null;
+    setImportFile(file);
+    setImportError("");
+    setImportSuccess("");
+
+    if (!file) return;
+
+    const fileName = file.name.toLowerCase();
+
+    if (fileName.endsWith(".pdf")) {
+      setImportType("pdf");
+    } else {
+      setImportType("csv");
+    }
+  };
+
+  const handleImportStatement = async () => {
+    try {
+      if (!importFile) {
+        setImportError("Please choose a CSV or PDF file first.");
+        return;
+      }
+
+      const fileName = importFile.name.toLowerCase();
+      const detectedType = fileName.endsWith(".pdf") ? "pdf" : "csv";
+
+      setImportLoading(true);
+      setImportError("");
+      setImportSuccess("");
+      setImportType(detectedType);
+
+      const formData = new FormData();
+      formData.append("file", importFile);
+
+      const res = await axios.post(`${API}/import/${detectedType}`, formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+
+      setImportedTransactions(
+        Array.isArray(res.data?.transactions) ? res.data.transactions : []
+      );
+      setImportSuccess(
+        res.data?.message ||
+          "Bank statement imported successfully. Review and save the imported expenses."
+      );
+    } catch (err) {
+      console.log("Import error:", err);
+      setImportedTransactions([]);
+      setImportError(
+        err.response?.data?.message || "Failed to import bank statement"
+      );
+    } finally {
+      setImportLoading(false);
+    }
+  };
+
+  const handleImportedCategoryChange = (id, value) => {
+    setImportedTransactions((prev) =>
+      prev.map((item) =>
+        item.id === id
+          ? {
+              ...item,
+              category: value,
+            }
+          : item
+      )
+    );
+  };
+
+  const handleSaveImportedExpenses = async () => {
+    try {
+      if (!importedTransactions.length) {
+        setImportError("No imported transactions available to save.");
+        return;
+      }
+
+      setImportSaving(true);
+      setImportError("");
+      setImportSuccess("");
+
+      const payload = {
+        transactions: importedTransactions.map((item) => ({
+          description: item.description,
+          amount: item.amount,
+          date: item.date,
+          category: item.category,
+          suggestedCategory: item.suggestedCategory,
+        })),
+      };
+
+      const res = await axios.post(`${API}/import/save`, payload);
+
+      const savedExpenses = Array.isArray(res.data?.expenses)
+        ? res.data.expenses
+        : [];
+
+      if (savedExpenses.length > 0) {
+        setExpenses((prev) => [...savedExpenses, ...prev]);
+      } else {
+        await fetchExpensesAndSalary();
+      }
+
+      setImportSuccess(
+        res.data?.message ||
+          `${res.data?.count || importedTransactions.length} imported expenses saved successfully`
+      );
+
+      setImportedTransactions([]);
+      setImportFile(null);
+
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    } catch (err) {
+      console.log("Save imported expenses error:", err);
+      setImportError(
+        err.response?.data?.message || "Failed to save imported expenses"
+      );
+    } finally {
+      setImportSaving(false);
+    }
+  };
+
+  const formatCurrency = (value) => {
+    return new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
+      maximumFractionDigits: 0,
+    }).format(Number(value || 0));
+  };
+
+  const formatDate = (value) => {
+    if (!value) return "Not set";
+    try {
+      return new Date(value).toLocaleDateString("en-IN", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      });
+    } catch {
+      return value;
+    }
+  };
+
+  const salaryAmount = Number(salaryData?.salary || 0);
+  const wantsLimit = Number(salaryData?.wants || 0);
+  const needsLimit = Number(salaryData?.needs || 0);
+  const savingsTarget = Number(salaryData?.savings || 0);
+
+  const totalExpenses = useMemo(() => {
+    return expenses.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  }, [expenses]);
+
+  const totalEntries = expenses.length;
+
+  const topCategory = useMemo(() => {
+    if (!expenses.length) return "No data";
+
+    const totals = {};
+    expenses.forEach((item) => {
+      const category = item.category || "General";
+      totals[category] = (totals[category] || 0) + Number(item.amount || 0);
+    });
+
+    let best = "No data";
+    let max = 0;
+
+    Object.keys(totals).forEach((category) => {
+      if (totals[category] > max) {
+        max = totals[category];
+        best = category;
+      }
+    });
+
+    return best;
+  }, [expenses]);
+
+  const averageExpense = totalEntries
+    ? Math.round(totalExpenses / totalEntries)
+    : 0;
+
+  const importedSummary = useMemo(() => {
+    return importedTransactions.reduce(
+      (acc, item) => {
+        const category = IMPORT_CATEGORIES.includes(item.category)
+          ? item.category
+          : "uncategorized";
+        acc[category] += Number(item.amount || 0);
+        acc.total += Number(item.amount || 0);
+        return acc;
+      },
+      {
+        want: 0,
+        need: 0,
+        saving: 0,
+        uncategorized: 0,
+        total: 0,
+      }
+    );
+  }, [importedTransactions]);
+
+  const savedCategorySummary = useMemo(() => {
+    return expenses.reduce(
+      (acc, item) => {
+        const category = IMPORT_CATEGORIES.includes(item.category)
+          ? item.category
+          : "uncategorized";
+        acc[category] += Number(item.amount || 0);
+        acc.total += Number(item.amount || 0);
+        return acc;
+      },
+      {
+        want: 0,
+        need: 0,
+        saving: 0,
+        uncategorized: 0,
+        total: 0,
+      }
+    );
+  }, [expenses]);
+
+  const filteredExpenses = useMemo(() => {
+    let items = [...expenses];
+
+    const query = historySearch.trim().toLowerCase();
+
+    if (query) {
+      items = items.filter((item) =>
+        String(item.title || "").toLowerCase().includes(query)
+      );
+    }
+
+    if (historyCategoryFilter !== "all") {
+      items = items.filter(
+        (item) => String(item.category || "") === historyCategoryFilter
+      );
+    }
+
+    if (historySort === "latest") {
+      items.sort(
+        (a, b) =>
+          new Date(b.date || b.createdAt || 0) -
+          new Date(a.date || a.createdAt || 0)
+      );
+    } else if (historySort === "oldest") {
+      items.sort(
+        (a, b) =>
+          new Date(a.date || a.createdAt || 0) -
+          new Date(b.date || b.createdAt || 0)
+      );
+    } else if (historySort === "highest") {
+      items.sort((a, b) => Number(b.amount || 0) - Number(a.amount || 0));
+    } else if (historySort === "lowest") {
+      items.sort((a, b) => Number(a.amount || 0) - Number(b.amount || 0));
+    } else if (historySort === "title-az") {
+      items.sort((a, b) =>
+        String(a.title || "").localeCompare(String(b.title || ""))
+      );
+    }
+
+    return items;
+  }, [expenses, historySearch, historyCategoryFilter, historySort]);
+
+  const buildBudgetWarnings = (summary) => {
+    if (!salaryAmount || (!wantsLimit && !needsLimit && !savingsTarget)) {
+      return [];
+    }
+
+    const warnings = [];
+
+    if (wantsLimit > 0 && summary.want > wantsLimit) {
+      warnings.push({
+        key: "want",
+        label: `Wants exceeded by ${formatCurrency(summary.want - wantsLimit)}`,
+      });
+    }
+
+    if (needsLimit > 0 && summary.need > needsLimit) {
+      warnings.push({
+        key: "need",
+        label: `Needs exceeded by ${formatCurrency(summary.need - needsLimit)}`,
+      });
+    }
+
+    if (savingsTarget > 0 && summary.saving < savingsTarget) {
+      warnings.push({
+        key: "saving",
+        label: `Savings target missed by ${formatCurrency(
+          savingsTarget - summary.saving
+        )}`,
+      });
+    }
+
+    return warnings;
+  };
+
+  const savedBudgetWarnings = useMemo(
+    () => buildBudgetWarnings(savedCategorySummary),
+    [savedCategorySummary, salaryAmount, wantsLimit, needsLimit, savingsTarget]
+  );
+
+  const importBudgetWarnings = useMemo(
+    () => buildBudgetWarnings(importedSummary),
+    [importedSummary, salaryAmount, wantsLimit, needsLimit, savingsTarget]
+  );
+
+  const overviewCards = [
+    {
+      title: "Total Expenses",
+      value: formatCurrency(totalExpenses),
+      subtitle: "Overall spending",
+      icon: Wallet,
+      valueClass: "text-[var(--status-warm-text)]",
+      iconSurface: "bg-[var(--status-warm-bg)] text-[var(--status-warm-text)]",
+    },
+    {
+      title: "Entries",
+      value: totalEntries,
+      subtitle: "Tracked records",
+      icon: Receipt,
+      valueClass: "text-[var(--text-primary)]",
+      iconSurface:
+        "bg-[var(--status-success-bg)] text-[var(--status-success-text)]",
+    },
+    {
+      title: "Top Category",
+      value: topCategory,
+      subtitle: "Highest spend bucket",
+      icon: Layers3,
+      valueClass: "text-[var(--text-primary)]",
+      iconSurface:
+        "bg-[var(--status-neutral-bg)] text-[var(--text-primary)]",
+    },
+    {
+      title: "Average Expense",
+      value: formatCurrency(averageExpense),
+      subtitle: "Per entry average",
+      icon: TrendingUp,
+      valueClass: "text-[var(--status-success-text)]",
+      iconSurface:
+        "bg-[var(--status-success-bg)] text-[var(--status-success-text)]",
+    },
+  ];
+
+  const importSummaryCards = [
+    {
+      title: "Wants",
+      value: formatCurrency(importedSummary.want),
+      subtitle: "Based on final selected category",
+      valueClass: "text-[var(--status-warm-text)]",
+    },
+    {
+      title: "Needs",
+      value: formatCurrency(importedSummary.need),
+      subtitle: "Editable by the user",
+      valueClass: "text-[var(--text-primary)]",
+    },
+    {
+      title: "Savings",
+      value: formatCurrency(importedSummary.saving),
+      subtitle: "Auto-detected suggestions",
+      valueClass: "text-[var(--status-success-text)]",
+    },
+    {
+      title: "Uncategorized",
+      value: formatCurrency(importedSummary.uncategorized),
+      subtitle: "For unclear transactions",
+      valueClass: "text-[var(--text-primary)]",
+    },
+  ];
+
+  const sectionVariants = {
+    hidden: { opacity: 0, y: 18 },
+    show: {
+      opacity: 1,
+      y: 0,
+      transition: { duration: 0.4, ease: "easeOut" },
+    },
+  };
+
+  const listVariants = {
+    hidden: {},
+    show: {
+      transition: {
+        staggerChildren: 0.06,
+      },
+    },
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 14, scale: 0.985 },
+    show: {
+      opacity: 1,
+      y: 0,
+      scale: 1,
+      transition: { duration: 0.28, ease: "easeOut" },
+    },
+    exit: {
+      opacity: 0,
+      y: -10,
+      scale: 0.985,
+      transition: { duration: 0.2, ease: "easeInOut" },
+    },
+  };
+
+  const cardHover = {
+    y: -4,
+    scale: 1.01,
+    transition: { duration: 0.2, ease: "easeOut" },
+  };
+
+  const warningDotClass =
+    "absolute left-3 top-3 h-3.5 w-3.5 rounded-full bg-red-500 shadow-[0_0_0_4px_rgba(239,68,68,0.12)]";
+
+  return (
+    <motion.div
+      className="space-y-5"
+      initial="hidden"
+      animate="show"
+      variants={listVariants}
+    >
+      <motion.section
+        variants={sectionVariants}
+        className="theme-hero overflow-hidden rounded-[24px] p-4 sm:rounded-[26px] sm:p-5 md:p-6"
+      >
+        <div className="grid items-start gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+          <div>
+            <div className="inline-flex max-w-full items-center gap-2 rounded-full border border-[var(--border-soft)] bg-[var(--panel-3)] px-3 py-1.5 text-[11px] font-medium text-[var(--text-secondary)] sm:text-xs">
+              <span className="h-2 w-2 rounded-full bg-[var(--accent)]" />
+              <span className="truncate">Daily spending management</span>
+            </div>
+
+            <h1 className="mt-3 text-2xl font-semibold tracking-tight text-[var(--text-primary)] sm:text-3xl">
+              Expense Tracker
+            </h1>
+
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--text-secondary)] md:text-[15px]">
+              Add, review, manage, and import your bank statement inside the
+              same expense workspace with editable category suggestions.
+            </p>
+          </div>
+
+          <motion.div
+            whileHover={cardHover}
+            className="theme-surface rounded-[22px] p-4 sm:rounded-[24px] sm:p-5"
+          >
+            <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--accent)]">
+              <TrendingUp size={14} />
+              Spending Overview
+            </div>
+
+            <h2 className="break-words text-2xl font-semibold text-[var(--text-primary)] sm:text-3xl">
+              {formatCurrency(totalExpenses)}
+            </h2>
+
+            <p className="mt-3 text-sm text-[var(--text-secondary)]">
+              Total recorded expenses across {totalEntries} entries.
+            </p>
+          </motion.div>
+        </div>
+      </motion.section>
+
+      <motion.section
+        variants={listVariants}
+        className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4"
+      >
+        {overviewCards.map((card) => {
+          const Icon = card.icon;
+
+          return (
+            <motion.div
+              key={card.title}
+              variants={itemVariants}
+              whileHover={cardHover}
+              className="theme-surface-2 rounded-[22px] p-4 transition hover:border-[var(--border-strong)] hover:bg-[var(--panel-3)]"
+            >
+              <div className="mb-3 flex items-start justify-between gap-3">
+                <p className="text-sm text-[var(--text-secondary)]">
+                  {card.title}
+                </p>
+                <div
+                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${card.iconSurface}`}
+                >
+                  <Icon size={18} />
+                </div>
+              </div>
+
+              <h2
+                className={`break-words text-xl font-semibold sm:text-2xl ${card.valueClass}`}
+              >
+                {card.value}
+              </h2>
+              <p className="mt-1 text-xs leading-5 text-[var(--text-muted)]">
+                {card.subtitle}
+              </p>
+            </motion.div>
+          );
+        })}
+      </motion.section>
+
+      <motion.section
+        variants={sectionVariants}
+        whileHover={cardHover}
+        className="theme-surface-2 rounded-[22px] p-4 sm:rounded-[24px] sm:p-5"
+      >
+        <div className="mb-5 flex items-start gap-3">
+          <div className="rounded-2xl bg-[var(--status-success-bg)] p-2.5 text-[var(--status-success-text)]">
+            <Upload size={18} />
+          </div>
+          <div className="min-w-0">
+            <h2 className="text-lg font-semibold text-[var(--text-primary)]">
+              Import Bank Statement
+            </h2>
+            <p className="text-sm text-[var(--text-secondary)]">
+              Upload a CSV or PDF statement. The system suggests categories, but
+              you can change every imported transaction manually.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid gap-4 xl:grid-cols-[1.12fr_0.88fr]">
+          <div className="theme-surface-3 rounded-[20px] p-4">
+            <label className="mb-2 block text-sm text-[var(--text-soft)]">
+              Choose CSV or PDF file
+            </label>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv,application/pdf,.pdf"
+              onChange={handleImportFileChange}
+              className="w-full rounded-2xl border px-4 py-3 text-sm file:mb-3 file:mr-0 file:block file:rounded-xl file:border-0 file:bg-[var(--accent)] file:px-4 file:py-2 file:text-sm file:font-medium file:text-white sm:file:mb-0 sm:file:mr-4 sm:file:inline-block"
+            />
+
+            <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-[var(--text-secondary)]">
+              <span className="theme-pill inline-flex items-center gap-2 rounded-full px-3 py-1.5">
+                <FileSpreadsheet size={14} />
+                CSV supported
+              </span>
+
+              <span className="theme-pill inline-flex items-center gap-2 rounded-full px-3 py-1.5">
+                <FileText size={14} />
+                PDF supported
+              </span>
+
+              {importFile ? (
+                <span className="theme-pill max-w-full rounded-full px-3 py-1.5">
+                  <span className="block max-w-full truncate">
+                    Selected: {importFile.name}
+                  </span>
+                </span>
+              ) : null}
+            </div>
+
+            <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+              <motion.button
+                whileHover={{ y: -2, scale: 1.01 }}
+                whileTap={{ scale: 0.98 }}
+                type="button"
+                onClick={handleImportStatement}
+                disabled={importLoading}
+                className="theme-primary-btn inline-flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+              >
+                <Upload size={16} />
+                {importLoading
+                  ? `Importing ${importType.toUpperCase()}...`
+                  : "Import Statement"}
+              </motion.button>
+
+              <motion.button
+                whileHover={{ y: -2, scale: 1.01 }}
+                whileTap={{ scale: 0.98 }}
+                type="button"
+                onClick={handleSaveImportedExpenses}
+                disabled={importSaving || importedTransactions.length === 0}
+                className="theme-muted-btn inline-flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+              >
+                <Save size={16} />
+                {importSaving ? "Saving..." : "Save Imported Expenses"}
+              </motion.button>
+            </div>
+
+            <AnimatePresence mode="wait">
+              {importError ? (
+                <motion.div
+                  key="import-error"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  className="theme-danger-btn mt-4 rounded-2xl px-4 py-3 text-sm"
+                >
+                  {importError}
+                </motion.div>
+              ) : null}
+
+              {!importError && importSuccess ? (
+                <motion.div
+                  key="import-success"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  className="mt-4 rounded-2xl border border-[var(--border-soft)] bg-[var(--status-success-bg)] px-4 py-3 text-sm text-[var(--status-success-text)]"
+                >
+                  {importSuccess}
+                </motion.div>
+              ) : null}
+            </AnimatePresence>
+          </div>
+
+          <motion.div
+            variants={listVariants}
+            className="grid gap-3 sm:grid-cols-2 xl:grid-cols-2"
+          >
+            {importSummaryCards.map((card) => {
+              const hasCardWarning =
+                (card.title === "Wants" &&
+                  wantsLimit > 0 &&
+                  importedSummary.want > wantsLimit) ||
+                (card.title === "Needs" &&
+                  needsLimit > 0 &&
+                  importedSummary.need > needsLimit) ||
+                (card.title === "Savings" &&
+                  savingsTarget > 0 &&
+                  importedSummary.saving < savingsTarget);
+
+              return (
+                <motion.div
+                  key={card.title}
+                  variants={itemVariants}
+                  whileHover={{ y: -3 }}
+                  className="theme-surface-3 relative rounded-[20px] p-4"
+                >
+                  {hasCardWarning ? (
+                    <motion.span
+                      className={warningDotClass}
+                      animate={{ opacity: [1, 0.25, 1], scale: [1, 1.15, 1] }}
+                      transition={{ duration: 1, repeat: Infinity, ease: "easeInOut" }}
+                    />
+                  ) : null}
+
+                  <p className="text-sm text-[var(--text-secondary)]">
+                    {card.title}
+                  </p>
+                  <h3
+                    className={`mt-1 break-words text-lg font-semibold sm:text-xl ${card.valueClass}`}
+                  >
+                    {card.value}
+                  </h3>
+                  <p className="mt-1 text-xs leading-5 text-[var(--text-muted)]">
+                    {card.subtitle}
+                  </p>
+                </motion.div>
+              );
+            })}
+          </motion.div>
+        </div>
+      </motion.section>
+
+      <AnimatePresence mode="wait">
+        {salaryAmount > 0 ? (
+          <motion.section
+            key="warning-active"
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -14 }}
+            transition={{ duration: 0.35, ease: "easeOut" }}
+            className="theme-surface-2 rounded-[22px] p-4 sm:rounded-[24px] sm:p-5"
+          >
+            <div className="mb-5 flex items-start gap-3">
+              <div className="rounded-2xl bg-[var(--status-neutral-bg)] p-2.5 text-[var(--text-primary)]">
+                <Target size={18} />
+              </div>
+              <div className="min-w-0">
+                <h2 className="text-lg font-semibold text-[var(--text-primary)]">
+                  Budget Alerts
+                </h2>
+                <p className="text-sm text-[var(--text-secondary)]">
+                  Track category limits against your current 50-30-20 salary split.
+                </p>
+              </div>
+            </div>
+
+            <div className="mb-4 grid gap-3 sm:grid-cols-3">
+              <motion.div
+                whileHover={{ y: -3 }}
+                className="theme-surface-3 relative rounded-[20px] p-4"
+              >
+                {savedCategorySummary.need > needsLimit && needsLimit > 0 ? (
+                  <motion.span
+                    className={warningDotClass}
+                    animate={{ opacity: [1, 0.25, 1], scale: [1, 1.15, 1] }}
+                    transition={{ duration: 1, repeat: Infinity, ease: "easeInOut" }}
+                  />
+                ) : null}
+                <p className="text-sm text-[var(--text-secondary)]">Needs Limit</p>
+                <h3 className="mt-1 text-lg font-semibold text-[var(--text-primary)] sm:text-xl">
+                  {formatCurrency(needsLimit)}
+                </h3>
+              </motion.div>
+
+              <motion.div
+                whileHover={{ y: -3 }}
+                className="theme-surface-3 relative rounded-[20px] p-4"
+              >
+                {savedCategorySummary.want > wantsLimit && wantsLimit > 0 ? (
+                  <motion.span
+                    className={warningDotClass}
+                    animate={{ opacity: [1, 0.25, 1], scale: [1, 1.15, 1] }}
+                    transition={{ duration: 1, repeat: Infinity, ease: "easeInOut" }}
+                  />
+                ) : null}
+                <p className="text-sm text-[var(--text-secondary)]">Wants Limit</p>
+                <h3 className="mt-1 text-lg font-semibold text-[var(--status-warm-text)] sm:text-xl">
+                  {formatCurrency(wantsLimit)}
+                </h3>
+              </motion.div>
+
+              <motion.div
+                whileHover={{ y: -3 }}
+                className="theme-surface-3 relative rounded-[20px] p-4"
+              >
+                {savedCategorySummary.saving < savingsTarget &&
+                savingsTarget > 0 ? (
+                  <motion.span
+                    className={warningDotClass}
+                    animate={{ opacity: [1, 0.25, 1], scale: [1, 1.15, 1] }}
+                    transition={{ duration: 1, repeat: Infinity, ease: "easeInOut" }}
+                  />
+                ) : null}
+                <p className="text-sm text-[var(--text-secondary)]">Savings Target</p>
+                <h3 className="mt-1 text-lg font-semibold text-[var(--status-success-text)] sm:text-xl">
+                  {formatCurrency(savingsTarget)}
+                </h3>
+              </motion.div>
+            </div>
+
+            <div className="grid gap-4 xl:grid-cols-2">
+              <div className="theme-surface-3 relative rounded-[20px] p-4">
+                {savedBudgetWarnings.length > 0 ? (
+                  <motion.span
+                    className={warningDotClass}
+                    animate={{ opacity: [1, 0.25, 1], scale: [1, 1.15, 1] }}
+                    transition={{ duration: 1, repeat: Infinity, ease: "easeInOut" }}
+                  />
+                ) : null}
+
+                <div className="mb-3 flex items-center gap-2">
+                  <AlertTriangle
+                    size={16}
+                    className={
+                      savedBudgetWarnings.length > 0
+                        ? "text-red-500"
+                        : "text-[var(--status-success-text)]"
+                    }
+                  />
+                  <h3 className="text-sm font-semibold text-[var(--text-primary)]">
+                    Saved Expenses Status
+                  </h3>
+                </div>
+
+                {savedBudgetWarnings.length > 0 ? (
+                  <motion.div
+                    variants={listVariants}
+                    initial="hidden"
+                    animate="show"
+                    className="space-y-3"
+                  >
+                    {savedBudgetWarnings.map((warning) => (
+                      <motion.div
+                        key={warning.key}
+                        variants={itemVariants}
+                        className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm font-medium text-red-600 dark:text-red-400"
+                      >
+                        {warning.label}
+                      </motion.div>
+                    ))}
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="rounded-2xl border border-[var(--border-soft)] bg-[var(--status-success-bg)] px-4 py-3 text-sm text-[var(--status-success-text)]"
+                  >
+                    All saved category totals are within the current budget limits.
+                  </motion.div>
+                )}
+              </div>
+
+              <div className="theme-surface-3 relative rounded-[20px] p-4">
+                {importBudgetWarnings.length > 0 ? (
+                  <motion.span
+                    className={warningDotClass}
+                    animate={{ opacity: [1, 0.25, 1], scale: [1, 1.15, 1] }}
+                    transition={{ duration: 1, repeat: Infinity, ease: "easeInOut" }}
+                  />
+                ) : null}
+
+                <div className="mb-3 flex items-center gap-2">
+                  {importedTransactions.length > 0 ? (
+                    <AlertTriangle
+                      size={16}
+                      className={
+                        importBudgetWarnings.length > 0
+                          ? "text-red-500"
+                          : "text-[var(--status-warm-text)]"
+                      }
+                    />
+                  ) : (
+                    <ShieldCheck
+                      size={16}
+                      className="text-[var(--status-success-text)]"
+                    />
+                  )}
+
+                  <h3 className="text-sm font-semibold text-[var(--text-primary)]">
+                    Imported Preview Status
+                  </h3>
+                </div>
+
+                {importedTransactions.length === 0 ? (
+                  <motion.div
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="rounded-2xl border border-dashed border-[var(--border-soft)] bg-[var(--panel-3)] px-4 py-3 text-sm text-[var(--text-muted)]"
+                  >
+                    Import a statement to see wants, needs, and savings warnings before saving.
+                  </motion.div>
+                ) : importBudgetWarnings.length > 0 ? (
+                  <motion.div
+                    variants={listVariants}
+                    initial="hidden"
+                    animate="show"
+                    className="space-y-3"
+                  >
+                    {importBudgetWarnings.map((warning) => (
+                      <motion.div
+                        key={warning.key}
+                        variants={itemVariants}
+                        className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm font-medium text-red-600 dark:text-red-400"
+                      >
+                        {warning.label}
+                      </motion.div>
+                    ))}
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="rounded-2xl border border-[var(--border-soft)] bg-[var(--status-success-bg)] px-4 py-3 text-sm text-[var(--status-success-text)]"
+                  >
+                    Imported category totals are within the current budget limits.
+                  </motion.div>
+                )}
+              </div>
+            </div>
+          </motion.section>
+        ) : (
+          <motion.section
+            key="warning-empty"
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -14 }}
+            transition={{ duration: 0.35, ease: "easeOut" }}
+            className="theme-surface-2 rounded-[22px] p-4 sm:rounded-[24px] sm:p-5"
+          >
+            <div className="rounded-[20px] border border-dashed border-[var(--border-soft)] bg-[var(--panel-3)] p-5 text-sm text-[var(--text-muted)] sm:p-6">
+              Add your salary first to enable wants, needs, and savings limit warnings.
+            </div>
+          </motion.section>
+        )}
+      </AnimatePresence>
+
+      <motion.section
+        variants={sectionVariants}
+        className="grid gap-4 xl:grid-cols-[1fr_1fr]"
+      >
+        <motion.div
+          whileHover={cardHover}
+          className="theme-surface-2 rounded-[22px] p-4 sm:rounded-[24px] sm:p-5"
+        >
+          <div className="mb-5 flex items-start gap-3">
+            <div className="rounded-2xl bg-[var(--status-success-bg)] p-2.5 text-[var(--status-success-text)]">
+              <Plus size={18} />
+            </div>
+            <div className="min-w-0">
+              <h2 className="text-lg font-semibold text-[var(--text-primary)]">
+                Add New Expense
+              </h2>
+              <p className="text-sm text-[var(--text-secondary)]">
+                Record a new spending entry
+              </p>
+            </div>
+          </div>
+
+          <form onSubmit={handleAddExpense} className="grid gap-4 md:grid-cols-2">
+            <div className="md:col-span-2">
+              <label className="mb-2 block text-sm text-[var(--text-soft)]">
+                Title
+              </label>
+              <input
+                type="text"
+                name="title"
+                placeholder="Expense title"
+                value={form.title}
+                onChange={handleChange}
+                className="w-full rounded-2xl border px-4 py-3 text-sm outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm text-[var(--text-soft)]">
+                Amount
+              </label>
+              <input
+                type="number"
+                name="amount"
+                placeholder="Amount"
+                value={form.amount}
+                onChange={handleChange}
+                className="w-full rounded-2xl border px-4 py-3 text-sm outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm text-[var(--text-soft)]">
+                Category
+              </label>
+              <select
+                name="category"
+                value={form.category}
+                onChange={handleChange}
+                className="w-full rounded-2xl border px-4 py-3 text-sm outline-none"
+              >
+                {MANUAL_CATEGORIES.map((category) => (
+                  <option key={category} value={category}>
+                    {category}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="mb-2 block text-sm text-[var(--text-soft)]">
+                Date
+              </label>
+              <input
+                type="date"
+                name="date"
+                value={form.date}
+                onChange={handleChange}
+                className="w-full rounded-2xl border px-4 py-3 text-sm outline-none"
+              />
+            </div>
+
+            <div className="md:col-span-2 pt-1">
+              <motion.button
+                whileHover={{ y: -2, scale: 1.01 }}
+                whileTap={{ scale: 0.98 }}
+                type="submit"
+                className="theme-primary-btn inline-flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-medium transition sm:w-auto"
+              >
+                <Plus size={16} />
+                Add Expense
+              </motion.button>
+            </div>
+          </form>
+        </motion.div>
+
+        <motion.div
+          whileHover={cardHover}
+          className="theme-surface-2 rounded-[22px] p-4 sm:rounded-[24px] sm:p-5"
+        >
+          <div className="mb-5 flex items-start gap-3">
+            <div className="rounded-2xl bg-[var(--status-warm-bg)] p-2.5 text-[var(--status-warm-text)]">
+              <Receipt size={18} />
+            </div>
+            <div className="min-w-0">
+              <h2 className="text-lg font-semibold text-[var(--text-primary)]">
+                Quick Summary
+              </h2>
+              <p className="text-sm text-[var(--text-secondary)]">
+                A compact view of spending status
+              </p>
+            </div>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
+            <motion.div
+              whileHover={{ y: -3 }}
+              className="theme-surface-3 rounded-[20px] p-4"
+            >
+              <p className="text-sm text-[var(--text-secondary)]">
+                Total Spent
+              </p>
+              <h3 className="mt-1 break-words text-lg font-semibold text-[var(--status-warm-text)] sm:text-xl">
+                {formatCurrency(totalExpenses)}
+              </h3>
+            </motion.div>
+
+            <motion.div
+              whileHover={{ y: -3 }}
+              className="theme-surface-3 rounded-[20px] p-4"
+            >
+              <p className="text-sm text-[var(--text-secondary)]">
+                Top Category
+              </p>
+              <h3 className="mt-1 break-words text-lg font-semibold text-[var(--text-primary)] sm:text-xl">
+                {topCategory}
+              </h3>
+            </motion.div>
+
+            <motion.div
+              whileHover={{ y: -3 }}
+              className="theme-surface-3 rounded-[20px] p-4"
+            >
+              <p className="text-sm text-[var(--text-secondary)]">
+                Average Entry
+              </p>
+              <h3 className="mt-1 break-words text-lg font-semibold text-[var(--status-success-text)] sm:text-xl">
+                {formatCurrency(averageExpense)}
+              </h3>
+            </motion.div>
+          </div>
+        </motion.div>
+      </motion.section>
+
+      <motion.section
+        variants={sectionVariants}
+        className="theme-surface-2 rounded-[22px] p-4 sm:rounded-[24px] sm:p-5"
+      >
+        <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <h2 className="text-lg font-semibold text-[var(--text-primary)]">
+              Imported Statement Preview
+            </h2>
+            <p className="text-sm text-[var(--text-secondary)]">
+              Review suggested categories and change them before saving into expenses.
+            </p>
+          </div>
+
+          <div className="theme-pill w-fit rounded-full px-3 py-1.5 text-xs font-medium">
+            {importedTransactions.length} imported entries
+          </div>
+        </div>
+
+        {importLoading ? (
+          <motion.div
+            initial={{ opacity: 0.4 }}
+            animate={{ opacity: 1 }}
+            transition={{ repeat: Infinity, repeatType: "reverse", duration: 0.8 }}
+            className="rounded-[20px] border border-dashed border-[var(--border-soft)] bg-[var(--panel-3)] p-5 text-sm text-[var(--text-muted)] sm:p-6"
+          >
+            Reading bank statement...
+          </motion.div>
+        ) : importedTransactions.length === 0 ? (
+          <div className="rounded-[20px] border border-dashed border-[var(--border-soft)] bg-[var(--panel-3)] p-5 text-sm text-[var(--text-muted)] sm:p-6">
+            No imported transactions yet. Upload a CSV or PDF statement above.
+          </div>
+        ) : (
+          <motion.div
+            variants={listVariants}
+            initial="hidden"
+            animate="show"
+            className="space-y-3"
+          >
+            <AnimatePresence>
+              {importedTransactions.map((item) => (
+                <motion.div
+                  key={item.id}
+                  variants={itemVariants}
+                  exit="exit"
+                  whileHover={{ y: -3, scale: 1.005 }}
+                  className="theme-surface-3 rounded-[20px] p-4"
+                >
+                  <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[1.1fr_0.7fr_0.7fr_0.8fr]">
+                    <div className="min-w-0">
+                      <p className="text-xs uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                        Description
+                      </p>
+                      <h3 className="mt-1 break-words text-base font-semibold text-[var(--text-primary)]">
+                        {item.description}
+                      </h3>
+                      <p className="mt-2 text-sm text-[var(--text-soft)]">
+                        {formatDate(item.date)}
+                      </p>
+                    </div>
+
+                    <div className="min-w-0">
+                      <p className="text-xs uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                        Amount
+                      </p>
+                      <h3 className="mt-1 break-words text-base font-semibold text-[var(--status-warm-text)]">
+                        {formatCurrency(item.amount || 0)}
+                      </h3>
+                    </div>
+
+                    <div className="min-w-0">
+                      <p className="text-xs uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                        Suggested
+                      </p>
+                      <span className="mt-1 inline-flex rounded-full border border-[var(--border-soft)] bg-[var(--status-neutral-bg)] px-3 py-1.5 text-xs font-semibold capitalize text-[var(--text-primary)]">
+                        {item.suggestedCategory}
+                      </span>
+                    </div>
+
+                    <div className="min-w-0">
+                      <label className="mb-2 block text-xs uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                        Final Category
+                      </label>
+                      <select
+                        value={item.category}
+                        onChange={(e) =>
+                          handleImportedCategoryChange(item.id, e.target.value)
+                        }
+                        className="w-full rounded-2xl border px-4 py-3 text-sm capitalize outline-none"
+                      >
+                        {IMPORT_CATEGORIES.map((category) => (
+                          <option key={category} value={category}>
+                            {category}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+
+            <div className="pt-2">
+              <motion.button
+                whileHover={{ y: -2, scale: 1.01 }}
+                whileTap={{ scale: 0.98 }}
+                type="button"
+                onClick={handleSaveImportedExpenses}
+                disabled={importSaving}
+                className="theme-primary-btn inline-flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+              >
+                <Save size={16} />
+                {importSaving ? "Saving Imported Expenses..." : "Save Imported Expenses"}
+              </motion.button>
+            </div>
+          </motion.div>
+        )}
+      </motion.section>
+
+      <motion.section
+        variants={sectionVariants}
+        className="theme-surface-2 rounded-[22px] p-4 sm:rounded-[24px] sm:p-5"
+      >
+        <div className="mb-5 flex flex-col gap-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <h2 className="text-lg font-semibold text-[var(--text-primary)]">
+                Expense History
+              </h2>
+              <p className="text-sm text-[var(--text-secondary)]">
+                Search, filter, sort, and edit your saved expenses
+              </p>
+            </div>
+
+            <div className="theme-pill w-fit rounded-full px-3 py-1.5 text-xs font-medium">
+              {filteredExpenses.length} shown / {totalEntries} entries
+            </div>
+          </div>
+
+          <div className="grid gap-3 lg:grid-cols-[1.3fr_0.8fr_0.8fr]">
+            <motion.div
+              whileHover={{ y: -2 }}
+              className="theme-surface-3 rounded-[20px] p-3"
+            >
+              <label className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                <Search size={14} />
+                Search
+              </label>
+              <input
+                type="text"
+                value={historySearch}
+                onChange={(e) => setHistorySearch(e.target.value)}
+                placeholder="Search by expense title"
+                className="w-full rounded-2xl border px-4 py-3 text-sm outline-none"
+              />
+            </motion.div>
+
+            <motion.div
+              whileHover={{ y: -2 }}
+              className="theme-surface-3 rounded-[20px] p-3"
+            >
+              <label className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                <Layers3 size={14} />
+                Filter Category
+              </label>
+              <select
+                value={historyCategoryFilter}
+                onChange={(e) => setHistoryCategoryFilter(e.target.value)}
+                className="w-full rounded-2xl border px-4 py-3 text-sm outline-none"
+              >
+                <option value="all">All Categories</option>
+                {HISTORY_CATEGORIES.map((category) => (
+                  <option key={category} value={category}>
+                    {category}
+                  </option>
+                ))}
+              </select>
+            </motion.div>
+
+            <motion.div
+              whileHover={{ y: -2 }}
+              className="theme-surface-3 rounded-[20px] p-3"
+            >
+              <label className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                <ArrowUpDown size={14} />
+                Sort
+              </label>
+              <select
+                value={historySort}
+                onChange={(e) => setHistorySort(e.target.value)}
+                className="w-full rounded-2xl border px-4 py-3 text-sm outline-none"
+              >
+                <option value="latest">Latest first</option>
+                <option value="oldest">Oldest first</option>
+                <option value="highest">Highest amount</option>
+                <option value="lowest">Lowest amount</option>
+                <option value="title-az">Title A-Z</option>
+              </select>
+            </motion.div>
+          </div>
+        </div>
+
+        {loading ? (
+          <motion.div
+            initial={{ opacity: 0.4 }}
+            animate={{ opacity: 1 }}
+            transition={{ repeat: Infinity, repeatType: "reverse", duration: 0.8 }}
+            className="rounded-[20px] border border-dashed border-[var(--border-soft)] bg-[var(--panel-3)] p-5 text-sm text-[var(--text-muted)] sm:p-6"
+          >
+            Loading expenses...
+          </motion.div>
+        ) : filteredExpenses.length === 0 ? (
+          <div className="rounded-[20px] border border-dashed border-[var(--border-soft)] bg-[var(--panel-3)] p-5 text-sm text-[var(--text-muted)] sm:p-6">
+            No expenses match your current search or filter.
+          </div>
+        ) : (
+          <motion.div
+            variants={listVariants}
+            initial="hidden"
+            animate="show"
+            className="grid gap-3"
+          >
+            <AnimatePresence>
+              {filteredExpenses.map((item) => {
+                const isEditing = editingExpenseId === item._id;
+                const isUpdating = updatingExpenseId === item._id;
+
+                return (
+                  <motion.div
+                    key={item._id}
+                    variants={itemVariants}
+                    exit="exit"
+                    layout
+                    whileHover={{ y: -3, scale: 1.005 }}
+                    className="theme-surface-3 rounded-[20px] p-4"
+                  >
+                    <AnimatePresence mode="wait">
+                      {!isEditing ? (
+                        <motion.div
+                          key="view-mode"
+                          initial={{ opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -8 }}
+                          className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h3 className="break-words text-base font-semibold text-[var(--text-primary)] sm:text-lg">
+                                {item.title}
+                              </h3>
+
+                              <span className="rounded-full border border-[var(--border-soft)] bg-[var(--status-neutral-bg)] px-2.5 py-1 text-xs font-semibold text-[var(--text-primary)]">
+                                {item.category || "General"}
+                              </span>
+                            </div>
+
+                            <div className="mt-3 flex flex-wrap gap-3 text-sm text-[var(--text-soft)]">
+                              <span className="rounded-xl bg-[var(--panel-4)] px-3 py-1.5">
+                                <b>Date:</b> {formatDate(item.date)}
+                              </span>
+
+                              <span className="rounded-xl bg-[var(--panel-4)] px-3 py-1.5">
+                                <b>Amount:</b> {formatCurrency(item.amount || 0)}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                            <span className="break-words text-base font-semibold text-[var(--status-warm-text)]">
+                              {formatCurrency(item.amount || 0)}
+                            </span>
+
+                            <motion.button
+                              whileHover={{ y: -2, scale: 1.01 }}
+                              whileTap={{ scale: 0.98 }}
+                              type="button"
+                              onClick={() => startEditExpense(item)}
+                              className="theme-muted-btn inline-flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-medium sm:w-auto"
+                            >
+                              <Pencil size={16} />
+                              Edit
+                            </motion.button>
+
+                            <motion.button
+                              whileHover={{ y: -2, scale: 1.01 }}
+                              whileTap={{ scale: 0.98 }}
+                              onClick={() => handleDeleteExpense(item._id)}
+                              className="theme-danger-btn inline-flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-medium transition sm:w-auto"
+                            >
+                              <Trash2 size={16} />
+                              Delete
+                            </motion.button>
+                          </div>
+                        </motion.div>
+                      ) : (
+                        <motion.div
+                          key="edit-mode"
+                          initial={{ opacity: 0, y: 8, height: 0 }}
+                          animate={{ opacity: 1, y: 0, height: "auto" }}
+                          exit={{ opacity: 0, y: -8, height: 0 }}
+                          className="grid gap-4 overflow-hidden"
+                        >
+                          <div className="grid gap-4 md:grid-cols-2">
+                            <div className="md:col-span-2">
+                              <label className="mb-2 block text-sm text-[var(--text-soft)]">
+                                Title
+                              </label>
+                              <input
+                                type="text"
+                                name="title"
+                                value={editForm.title}
+                                onChange={handleEditFormChange}
+                                className="w-full rounded-2xl border px-4 py-3 text-sm outline-none"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="mb-2 block text-sm text-[var(--text-soft)]">
+                                Amount
+                              </label>
+                              <input
+                                type="number"
+                                name="amount"
+                                value={editForm.amount}
+                                onChange={handleEditFormChange}
+                                className="w-full rounded-2xl border px-4 py-3 text-sm outline-none"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="mb-2 block text-sm text-[var(--text-soft)]">
+                                Category
+                              </label>
+                              <select
+                                name="category"
+                                value={editForm.category}
+                                onChange={handleEditFormChange}
+                                className="w-full rounded-2xl border px-4 py-3 text-sm outline-none"
+                              >
+                                {HISTORY_CATEGORIES.map((category) => (
+                                  <option key={category} value={category}>
+                                    {category}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+
+                            <div className="md:col-span-2">
+                              <label className="mb-2 block text-sm text-[var(--text-soft)]">
+                                Date
+                              </label>
+                              <input
+                                type="date"
+                                name="date"
+                                value={editForm.date}
+                                onChange={handleEditFormChange}
+                                className="w-full rounded-2xl border px-4 py-3 text-sm outline-none"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="flex flex-col gap-3 sm:flex-row">
+                            <motion.button
+                              whileHover={{ y: -2, scale: 1.01 }}
+                              whileTap={{ scale: 0.98 }}
+                              type="button"
+                              onClick={() => handleSaveExpense(item._id)}
+                              disabled={isUpdating}
+                              className="theme-primary-btn inline-flex items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              <Check size={16} />
+                              {isUpdating ? "Saving..." : "Save Changes"}
+                            </motion.button>
+
+                            <motion.button
+                              whileHover={{ y: -2, scale: 1.01 }}
+                              whileTap={{ scale: 0.98 }}
+                              type="button"
+                              onClick={cancelEditExpense}
+                              disabled={isUpdating}
+                              className="theme-muted-btn inline-flex items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              <X size={16} />
+                              Cancel
+                            </motion.button>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
+          </motion.div>
+        )}
+      </motion.section>
+    </motion.div>
+  );
+}
+
+export default Expenses;
