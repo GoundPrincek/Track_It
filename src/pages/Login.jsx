@@ -1,7 +1,7 @@
 import { useState } from "react";
 import axios from "axios";
 import { useNavigate, Link } from "react-router-dom";
-import { Lock, Mail, User, ArrowRight } from "lucide-react";
+import { Lock, Mail, User, ArrowRight, Eye, EyeOff } from "lucide-react";
 import { API_BASE } from "../config/api";
 
 function Login() {
@@ -9,6 +9,7 @@ function Login() {
 
   const [isRegister, setIsRegister] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -199,7 +200,7 @@ function Login() {
                   <div className="flex items-center gap-3 rounded-2xl border bg-[var(--input-bg)] px-4 py-3">
                     <Lock size={18} className="shrink-0 text-[var(--text-muted)]" />
                     <input
-                      type="password"
+                      type={showPassword ? "text" : "password"}
                       placeholder="Enter your password"
                       className="w-full bg-transparent text-sm text-[var(--text-primary)] placeholder:text-[var(--input-placeholder)] outline-none"
                       value={form.password}
@@ -215,6 +216,13 @@ function Login() {
                         }
                       }}
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((prev) => !prev)}
+                      className="shrink-0 text-[var(--text-muted)]"
+                    >
+                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
                   </div>
                 </div>
 
