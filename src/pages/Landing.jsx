@@ -11,18 +11,45 @@ import {
   Sparkles,
   CalendarDays,
   Check,
-  Star,
   ChevronDown,
-  Quote,
   Zap,
   Target,
   BadgeIndianRupee,
+  Sun,
+  Moon,
+  MonitorSmartphone,
+  Palette,
 } from "lucide-react";
 
-function Landing() {
-  const token = localStorage.getItem("token");
-  const dashboardPath = token ? "/dashboard" : "/login";
+function Landing({ theme = "dark", setTheme = () => {} }) {
+  const dashboardPath = "/login";
   const [openFaq, setOpenFaq] = useState(0);
+  const [autoOpenDashboard, setAutoOpenDashboard] = useState(() => {
+    return localStorage.getItem("trackit-auto-dashboard") === "true";
+  });
+  const [compactCards, setCompactCards] = useState(() => {
+    return localStorage.getItem("trackit-compact-cards") === "true";
+  });
+
+  const handleThemeToggle = () => {
+    setTheme((prev) => (prev === "dark" ? "light" : "dark"));
+  };
+
+  const handleAutoOpenDashboardChange = () => {
+    setAutoOpenDashboard((prev) => {
+      const next = !prev;
+      localStorage.setItem("trackit-auto-dashboard", String(next));
+      return next;
+    });
+  };
+
+  const handleCompactCardsChange = () => {
+    setCompactCards((prev) => {
+      const next = !prev;
+      localStorage.setItem("trackit-compact-cards", String(next));
+      return next;
+    });
+  };
 
   const features = [
     {
@@ -37,7 +64,8 @@ function Landing() {
       title: "Salary planning",
       description:
         "Split income using the 50-30-20 rule and keep your monthly money flow clear.",
-      iconClass: "bg-[var(--status-success-bg)] text-[var(--status-success-text)]",
+      iconClass:
+        "bg-[var(--status-success-bg)] text-[var(--status-success-text)]",
     },
     {
       icon: CheckSquare,
@@ -51,7 +79,8 @@ function Landing() {
       title: "Statement import",
       description:
         "Upload CSV or PDF statements and edit suggested categories before finalizing.",
-      iconClass: "bg-[var(--status-success-bg)] text-[var(--status-success-text)]",
+      iconClass:
+        "bg-[var(--status-success-bg)] text-[var(--status-success-text)]",
     },
     {
       icon: BarChart3,
@@ -77,15 +106,14 @@ function Landing() {
       description:
         "Start managing daily money flow and personal productivity in one place.",
       icon: Sparkles,
-      iconClass:
-        "bg-[var(--status-neutral-bg)] text-[var(--text-primary)]",
+      iconClass: "bg-[var(--status-neutral-bg)] text-[var(--text-primary)]",
       features: [
         "Salary planner",
         "Manual expense tracking",
         "Todo timeline",
         "Dashboard overview",
       ],
-      cta: token ? "Open Dashboard" : "Start Free",
+      cta: "Start Free",
       path: dashboardPath,
       highlighted: false,
     },
@@ -105,7 +133,7 @@ function Landing() {
         "Structured daily planning",
         "Better decision support",
       ],
-      cta: token ? "Go to Dashboard" : "Get Started",
+      cta: "Get Started",
       path: dashboardPath,
       highlighted: true,
     },
@@ -116,8 +144,7 @@ function Landing() {
       description:
         "For advanced reports, analytics, reminders, and export-friendly workflows.",
       icon: BarChart3,
-      iconClass:
-        "bg-[var(--status-warm-bg)] text-[var(--status-warm-text)]",
+      iconClass: "bg-[var(--status-warm-bg)] text-[var(--status-warm-text)]",
       features: [
         "Advanced analytics",
         "Notifications & reminders",
@@ -127,27 +154,6 @@ function Landing() {
       cta: "Explore TrackIt",
       path: dashboardPath,
       highlighted: false,
-    },
-  ];
-
-  const testimonials = [
-    {
-      name: "Aarav",
-      role: "Student",
-      quote:
-        "TrackIt made budgeting feel less stressful. I can finally see where my money goes and still plan my study day properly.",
-    },
-    {
-      name: "Riya",
-      role: "Early career user",
-      quote:
-        "The combination of salary planning and goal tracking is what makes this feel useful every day, not just once a month.",
-    },
-    {
-      name: "Kabir",
-      role: "Focused builder",
-      quote:
-        "Importing statements plus editing wants and needs manually is exactly the control I wanted. It feels practical, not rigid.",
     },
   ];
 
@@ -192,15 +198,13 @@ function Landing() {
         value: "CSV + PDF",
         label: "statement import support",
         icon: Upload,
-        iconClass:
-          "bg-[var(--status-warm-bg)] text-[var(--status-warm-text)]",
+        iconClass: "bg-[var(--status-warm-bg)] text-[var(--status-warm-text)]",
       },
       {
         value: "Daily goals",
         label: "timeline-based planning",
         icon: CalendarDays,
-        iconClass:
-          "bg-[var(--status-neutral-bg)] text-[var(--text-primary)]",
+        iconClass: "bg-[var(--status-neutral-bg)] text-[var(--text-primary)]",
       },
       {
         value: "One place",
@@ -213,13 +217,40 @@ function Landing() {
     []
   );
 
+  const settingsCards = [
+    {
+      title: "Theme Mode",
+      value: theme === "dark" ? "Dark Mode" : "Light Mode",
+      subtitle: "Switch the landing experience instantly",
+      icon: theme === "dark" ? Moon : Sun,
+      actionLabel: theme === "dark" ? "Switch to Light" : "Switch to Dark",
+      onClick: handleThemeToggle,
+    },
+    {
+      title: "Auto Open Dashboard",
+      value: autoOpenDashboard ? "Enabled" : "Disabled",
+      subtitle: "Keeps your workflow focused after login",
+      icon: MonitorSmartphone,
+      actionLabel: autoOpenDashboard ? "Turn Off" : "Turn On",
+      onClick: handleAutoOpenDashboardChange,
+    },
+    {
+      title: "Compact Card Mode",
+      value: compactCards ? "Enabled" : "Disabled",
+      subtitle: "Prepared for tighter layouts and future UI preferences",
+      icon: Palette,
+      actionLabel: compactCards ? "Disable" : "Enable",
+      onClick: handleCompactCardsChange,
+    },
+  ];
+
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[var(--bg-primary)] text-[var(--text-primary)]">
+    <div className="relative min-h-screen overflow-hidden bg-[var(--bg-primary)] text-[var(--text-primary)] transition-colors duration-300">
       <div className="pointer-events-none absolute inset-0 opacity-80">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,var(--bg-glow-1),transparent_28%),radial-gradient(circle_at_top_right,var(--bg-glow-2),transparent_22%),radial-gradient(circle_at_bottom_center,var(--bg-glow-3),transparent_30%)]" />
       </div>
 
-      <header className="relative z-20">
+      <header className="relative z-20 border-b border-[var(--border-soft)] bg-[var(--header-bg)]/80 backdrop-blur-xl">
         <div className="flex items-center justify-between gap-3 px-3 py-4 sm:px-4 md:px-5 xl:px-6">
           <Link to="/" className="flex min-w-0 items-center gap-2 sm:gap-3">
             <div className="shrink-0 rounded-2xl border border-[var(--border-soft)] bg-[var(--brand-bg)] px-3 py-2.5 text-sm font-semibold text-[var(--text-primary)] shadow-[var(--shadow-soft)] sm:px-3.5">
@@ -231,6 +262,22 @@ function Landing() {
           </Link>
 
           <div className="flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={handleThemeToggle}
+              aria-label={
+                theme === "dark"
+                  ? "Switch to light mode"
+                  : "Switch to dark mode"
+              }
+              className="theme-muted-btn inline-flex items-center gap-2 rounded-2xl px-3 py-2.5 text-sm font-medium transition sm:px-4"
+            >
+              {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+              <span className="hidden sm:inline">
+                {theme === "dark" ? "Light Mode" : "Dark Mode"}
+              </span>
+            </button>
+
             <Link
               to="/login"
               className="theme-muted-btn inline-flex items-center gap-2 rounded-2xl px-3 py-2.5 text-sm font-medium transition sm:px-4"
@@ -242,10 +289,8 @@ function Landing() {
               to={dashboardPath}
               className="theme-primary-btn inline-flex items-center gap-2 rounded-2xl px-3 py-2.5 text-sm font-medium transition sm:px-4"
             >
-              <span className="hidden sm:inline">
-                {token ? "Open Dashboard" : "Get Started"}
-              </span>
-              <span className="sm:hidden">{token ? "Dashboard" : "Start"}</span>
+              <span className="hidden sm:inline">Get Started</span>
+              <span className="sm:hidden">Start</span>
               <ArrowRight size={16} />
             </Link>
           </div>
@@ -276,7 +321,7 @@ function Landing() {
                 to={dashboardPath}
                 className="theme-primary-btn inline-flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-medium transition sm:w-auto"
               >
-                {token ? "Go to Dashboard" : "Start with TrackIt"}
+                Start with TrackIt
                 <ArrowRight size={16} />
               </Link>
 
@@ -366,6 +411,59 @@ function Landing() {
                 One dashboard. Less chaos. Better decisions.
               </h3>
             </div>
+          </div>
+        </section>
+
+        <section className="mt-6">
+          <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+            <div className="inline-flex w-fit items-center gap-2 rounded-full border border-[var(--border-soft)] bg-[var(--panel-3)] px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)]">
+              Quick Settings
+            </div>
+            <p className="text-sm text-[var(--text-muted)]">
+              Personalize the experience before you even log in
+            </p>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {settingsCards.map((item) => {
+              const Icon = item.icon;
+
+              return (
+                <div
+                  key={item.title}
+                  className="theme-surface rounded-[22px] p-4 shadow-[var(--shadow-soft)] sm:rounded-[24px] sm:p-5"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="rounded-2xl bg-[var(--status-neutral-bg)] p-2.5 text-[var(--text-primary)]">
+                        <Icon size={18} />
+                      </div>
+
+                      <div>
+                        <p className="text-sm text-[var(--text-secondary)]">
+                          {item.title}
+                        </p>
+                        <h3 className="mt-1 text-lg font-semibold text-[var(--text-primary)]">
+                          {item.value}
+                        </h3>
+                      </div>
+                    </div>
+                  </div>
+
+                  <p className="mt-4 text-sm leading-7 text-[var(--text-secondary)]">
+                    {item.subtitle}
+                  </p>
+
+                  <button
+                    type="button"
+                    onClick={item.onClick}
+                    className="theme-primary-btn mt-5 inline-flex w-full items-center justify-center rounded-2xl px-4 py-3 text-sm font-medium transition"
+                  >
+                    {item.actionLabel}
+                  </button>
+                </div>
+              );
+            })}
           </div>
         </section>
 
@@ -480,49 +578,6 @@ function Landing() {
           </div>
         </section>
 
-        <section className="mt-6">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <div className="inline-flex items-center gap-2 rounded-full border border-[var(--border-soft)] bg-[var(--panel-3)] px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)]">
-              Testimonials
-            </div>
-            <div className="hidden items-center gap-1 md:flex">
-              {[1, 2, 3, 4, 5].map((item) => (
-                <Star
-                  key={item}
-                  size={15}
-                  className="fill-[var(--status-warm-text)] text-[var(--status-warm-text)]"
-                />
-              ))}
-            </div>
-          </div>
-
-          <div className="grid gap-4 xl:grid-cols-3">
-            {testimonials.map((item) => (
-              <div
-                key={item.name}
-                className="theme-surface rounded-[22px] p-4 sm:rounded-[24px] sm:p-5"
-              >
-                <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--status-neutral-bg)] text-[var(--text-primary)]">
-                  <Quote size={18} />
-                </div>
-
-                <p className="text-sm leading-7 text-[var(--text-secondary)]">
-                  “{item.quote}”
-                </p>
-
-                <div className="mt-5 border-t border-[var(--border-soft)] pt-4">
-                  <h3 className="font-semibold text-[var(--text-primary)]">
-                    {item.name}
-                  </h3>
-                  <p className="text-sm text-[var(--text-muted)]">
-                    {item.role}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-
         <section className="mt-6 grid gap-4 xl:grid-cols-[0.95fr_1.05fr] xl:gap-6">
           <div className="theme-surface rounded-[24px] p-4 sm:rounded-[28px] sm:p-6">
             <div className="inline-flex items-center gap-2 rounded-full border border-[var(--border-soft)] bg-[var(--panel-3)] px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)]">
@@ -599,10 +654,10 @@ function Landing() {
               </Link>
 
               <Link
-                to={token ? "/dashboard" : "/login"}
+                to="/login"
                 className="theme-muted-btn inline-flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-medium transition sm:w-auto"
               >
-                {token ? "Open Dashboard" : "Login"}
+                Login
               </Link>
             </div>
           </div>
