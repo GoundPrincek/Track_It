@@ -11,9 +11,16 @@ import {
   RefreshCw,
   ArrowUpRight,
   Sparkles,
+  AlertTriangle,
 } from "lucide-react";
 import { motion } from "framer-motion";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
+import {
+  PieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+  Tooltip,
+} from "recharts";
 import { API_BASE } from "../config/api";
 
 function Dashboard() {
@@ -21,6 +28,15 @@ function Dashboard() {
   const [expenses, setExpenses] = useState([]);
   const [todos, setTodos] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [chartPalette, setChartPalette] = useState({
+    needs: "#2563EB",
+    wants: "#D97706",
+    savings: "#059669",
+    needsShadow: "rgba(37, 99, 235, 0.28)",
+    wantsShadow: "rgba(217, 119, 6, 0.28)",
+    savingsShadow: "rgba(5, 150, 105, 0.28)",
+    depth: "rgba(15, 23, 42, 0.22)",
+  });
 
   const formatCurrency = (value) => {
     return new Intl.NumberFormat("en-IN", {
@@ -29,6 +45,53 @@ function Dashboard() {
       maximumFractionDigits: 0,
     }).format(Number(value || 0));
   };
+
+  useEffect(() => {
+    const syncChartPaletteFromTheme = () => {
+      const styles = getComputedStyle(document.documentElement);
+
+      const readVar = (name, fallback) => {
+        const value = styles.getPropertyValue(name).trim();
+        return value || fallback;
+      };
+
+      const needs = readVar("--color-needs", "#2563EB");
+      const wants = readVar("--color-wants", "#D97706");
+      const savings = readVar("--color-savings", "#059669");
+
+      setChartPalette({
+        needs,
+        wants,
+        savings,
+        needsShadow:
+          needs === "#60A5FA"
+            ? "rgba(96, 165, 250, 0.30)"
+            : "rgba(37, 99, 235, 0.28)",
+        wantsShadow:
+          wants === "#FBBF24"
+            ? "rgba(251, 191, 36, 0.30)"
+            : "rgba(217, 119, 6, 0.28)",
+        savingsShadow:
+          savings === "#34D399"
+            ? "rgba(52, 211, 153, 0.30)"
+            : "rgba(5, 150, 105, 0.28)",
+        depth:
+          readVar("--bg-primary", "#0F172A") === "#0F172A"
+            ? "rgba(2, 6, 23, 0.30)"
+            : "rgba(15, 23, 42, 0.18)",
+      });
+    };
+
+    syncChartPaletteFromTheme();
+
+    const observer = new MutationObserver(syncChartPaletteFromTheme);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-theme"],
+    });
+
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -111,24 +174,36 @@ function Dashboard() {
   const chartData = useMemo(() => {
     return [
       {
-        name: "Wants",
-        value: categorizedSummary.want,
-        color: "#f97316",
-      },
-      {
         name: "Needs",
-        value: categorizedSummary.need,
-        color: "#22c55e",
+        value: Number(categorizedSummary.need || 0),
+        color: chartPalette.needs,
+        shadowColor: chartPalette.needsShadow,
       },
       {
-        name: "Saving",
-        value: categorizedSummary.saving,
-        color: "#3b82f6",
+        name: "Wants",
+        value: Number(categorizedSummary.want || 0),
+        color: chartPalette.wants,
+        shadowColor: chartPalette.wantsShadow,
       },
-    ];
-  }, [categorizedSummary]);
+      {
+        name: "Savings",
+        value: Number(categorizedSummary.saving || 0),
+        color: chartPalette.savings,
+        shadowColor: chartPalette.savingsShadow,
+      },
+    ].filter((item) => item.value > 0);
+  }, [categorizedSummary, chartPalette]);
 
-  const hasChartData = chartData.some((item) => item.value > 0);
+  const chartDepthLayers = useMemo(() => {
+    return [18, 14, 10, 6].map((offset, index) => ({
+      id: `depth-${offset}-${chartData.length}-${chartData
+        .map((item) => item.value)
+        .join("-")}-${index}`,
+      offset,
+    }));
+  }, [chartData]);
+
+  const hasChartData = chartData.length > 0;
   const chartTotal = chartData.reduce(
     (sum, item) => sum + Number(item.value || 0),
     0
@@ -215,16 +290,16 @@ function Dashboard() {
       value: formatCurrency(salaryAmount),
       subtitle: "Monthly income",
       icon: IndianRupee,
-      valueClass: "text-[var(--accent-2)]",
+      valueClass: "text-[var(--color-accent)]",
       iconSurface:
-        "bg-[var(--status-success-bg)] text-[var(--status-success-text)]",
+        "bg-[var(--status-neutral-bg)] text-[var(--color-accent)]",
     },
     {
       title: "Expenses",
       value: formatCurrency(totalExpenses),
       subtitle: "Tracked spending",
       icon: Wallet,
-      valueClass: "text-[var(--accent-warm)]",
+      valueClass: "text-[var(--color-wants)]",
       iconSurface:
         "bg-[var(--status-warm-bg)] text-[var(--status-warm-text)]",
     },
@@ -235,12 +310,12 @@ function Dashboard() {
       icon: TrendingUp,
       valueClass:
         remainingBalance >= 0
-          ? "text-[var(--status-success-text)]"
-          : "text-[var(--status-danger-text)]",
+          ? "text-[var(--color-savings)]"
+          : "text-[var(--danger-text)]",
       iconSurface:
         remainingBalance >= 0
           ? "bg-[var(--status-success-bg)] text-[var(--status-success-text)]"
-          : "bg-[var(--status-danger-bg)] text-[var(--status-danger-text)]",
+          : "bg-[var(--danger-bg)] text-[var(--danger-text)]",
     },
     {
       title: "Today Goals",
@@ -256,9 +331,9 @@ function Dashboard() {
       value: `${averageProductivity}/10`,
       subtitle: "Productivity average",
       icon: CheckCircle2,
-      valueClass: "text-[var(--text-primary)]",
+      valueClass: "text-[var(--status-warm-text)]",
       iconSurface:
-        "bg-[var(--status-neutral-bg)] text-[var(--text-primary)]",
+        "bg-[var(--status-warm-bg)] text-[var(--status-warm-text)]",
     },
   ];
 
@@ -462,7 +537,7 @@ function Dashboard() {
           className="theme-surface-2 rounded-[22px] p-4 sm:rounded-[24px] sm:p-5"
         >
           <div className="mb-4 flex items-center gap-2">
-            <div className="rounded-2xl bg-[var(--status-success-bg)] p-2.5 text-[var(--status-success-text)]">
+            <div className="rounded-2xl bg-[var(--status-neutral-bg)] p-2.5 text-[var(--color-accent)]">
               <Target size={18} />
             </div>
             <div className="min-w-0">
@@ -481,7 +556,7 @@ function Dashboard() {
               className="theme-surface-3 rounded-[20px] p-4"
             >
               <p className="text-sm text-[var(--text-secondary)]">Needs Budget</p>
-              <h3 className="mt-1 text-lg font-semibold text-[var(--status-success-text)] sm:text-xl">
+              <h3 className="mt-1 text-lg font-semibold text-[var(--color-needs)] sm:text-xl">
                 {formatCurrency(needs)}
               </h3>
               <p className="mt-1 text-xs text-[var(--text-muted)]">
@@ -494,7 +569,7 @@ function Dashboard() {
               className="theme-surface-3 rounded-[20px] p-4"
             >
               <p className="text-sm text-[var(--text-secondary)]">Wants Budget</p>
-              <h3 className="mt-1 text-lg font-semibold text-[var(--status-warm-text)] sm:text-xl">
+              <h3 className="mt-1 text-lg font-semibold text-[var(--color-wants)] sm:text-xl">
                 {formatCurrency(wants)}
               </h3>
               <p className="mt-1 text-xs text-[var(--text-muted)]">
@@ -509,7 +584,7 @@ function Dashboard() {
               <p className="text-sm text-[var(--text-secondary)]">
                 Savings Target
               </p>
-              <h3 className="mt-1 text-lg font-semibold text-[var(--text-primary)] sm:text-xl">
+              <h3 className="mt-1 text-lg font-semibold text-[var(--color-savings)] sm:text-xl">
                 {formatCurrency(savings)}
               </h3>
               <p className="mt-1 text-xs text-[var(--text-muted)]">
@@ -554,7 +629,7 @@ function Dashboard() {
               className="theme-surface-3 rounded-[20px] p-4"
             >
               <p className="text-sm text-[var(--text-secondary)]">In Progress</p>
-              <h3 className="mt-1 text-lg font-semibold text-[var(--text-primary)]">
+              <h3 className="mt-1 text-lg font-semibold text-[var(--status-warm-text)]">
                 {inProgressGoals}
               </h3>
             </motion.div>
@@ -564,7 +639,7 @@ function Dashboard() {
               className="theme-surface-3 rounded-[20px] p-4"
             >
               <p className="text-sm text-[var(--text-secondary)]">Pending</p>
-              <h3 className="mt-1 text-lg font-semibold text-[var(--status-warm-text)]">
+              <h3 className="mt-1 text-lg font-semibold text-[var(--color-accent)]">
                 {pendingGoals}
               </h3>
             </motion.div>
@@ -588,7 +663,13 @@ function Dashboard() {
               <p className="text-sm text-[var(--text-secondary)]">
                 Current Balance
               </p>
-              <h3 className="mt-1 break-words text-lg font-semibold text-[var(--status-success-text)]">
+              <h3
+                className={`mt-1 break-words text-lg font-semibold ${
+                  remainingBalance >= 0
+                    ? "text-[var(--color-savings)]"
+                    : "text-[var(--danger-text)]"
+                }`}
+              >
                 {formatCurrency(remainingBalance)}
               </h3>
             </motion.div>
@@ -600,7 +681,15 @@ function Dashboard() {
               <p className="text-sm text-[var(--text-secondary)]">
                 Savings Health
               </p>
-              <h3 className="mt-1 text-lg font-semibold text-[var(--text-primary)]">
+              <h3
+                className={`mt-1 text-lg font-semibold ${
+                  savingsHealth === "Healthy"
+                    ? "text-[var(--color-savings)]"
+                    : savingsHealth === "Moderate"
+                    ? "text-[var(--status-warm-text)]"
+                    : "text-[var(--danger-text)]"
+                }`}
+              >
                 {savingsHealth}
               </h3>
             </motion.div>
@@ -636,30 +725,45 @@ function Dashboard() {
             </div>
           ) : (
             <motion.div variants={containerVariants} className="space-y-3">
-              {recentExpenses.map((item) => (
-                <motion.div
-                  key={item._id}
-                  variants={itemVariants}
-                  whileHover={{ x: 4, scale: 1.01 }}
-                  className="theme-surface-3 rounded-[20px] p-4 transition hover:border-[var(--border-strong)]"
-                >
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="min-w-0">
-                      <p className="truncate font-medium text-[var(--text-primary)]">
-                        {item.title}
-                      </p>
-                      <p className="mt-1 text-sm text-[var(--text-muted)]">
-                        {item.category || "General"}
-                      </p>
-                    </div>
+              {recentExpenses.map((item) => {
+                const expenseCategory = String(item.category || "").toLowerCase();
 
-                    <div className="flex items-center gap-2 text-sm font-semibold text-[var(--status-warm-text)] sm:ml-4 sm:whitespace-nowrap">
-                      {formatCurrency(item.amount || 0)}
-                      <ArrowUpRight size={15} />
+                const amountColorClass =
+                  expenseCategory === "need"
+                    ? "text-[var(--color-needs)]"
+                    : expenseCategory === "want"
+                    ? "text-[var(--color-wants)]"
+                    : expenseCategory === "saving"
+                    ? "text-[var(--color-savings)]"
+                    : "text-[var(--text-primary)]";
+
+                return (
+                  <motion.div
+                    key={item._id}
+                    variants={itemVariants}
+                    whileHover={{ x: 4, scale: 1.01 }}
+                    className="theme-surface-3 rounded-[20px] p-4 transition hover:border-[var(--border-strong)]"
+                  >
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="min-w-0">
+                        <p className="truncate font-medium text-[var(--text-primary)]">
+                          {item.title}
+                        </p>
+                        <p className="mt-1 text-sm text-[var(--text-muted)]">
+                          {item.category || "General"}
+                        </p>
+                      </div>
+
+                      <div
+                        className={`flex items-center gap-2 text-sm font-semibold sm:ml-4 sm:whitespace-nowrap ${amountColorClass}`}
+                      >
+                        {formatCurrency(item.amount || 0)}
+                        <ArrowUpRight size={15} />
+                      </div>
                     </div>
-                  </div>
-                </motion.div>
-              ))}
+                  </motion.div>
+                );
+              })}
             </motion.div>
           )}
         </motion.div>
@@ -669,47 +773,93 @@ function Dashboard() {
           className="theme-surface-2 rounded-[22px] p-4 sm:rounded-[24px] sm:p-5"
         >
           <div className="mb-4 flex items-center gap-2">
-            <div className="rounded-2xl bg-[var(--status-success-bg)] p-2.5 text-[var(--status-success-text)]">
+            <div className="rounded-2xl bg-[var(--status-neutral-bg)] p-2.5 text-[var(--color-accent)]">
               <Target size={18} />
             </div>
             <div className="min-w-0">
               <h2 className="text-lg font-semibold text-[var(--text-primary)]">
-                Wants / Needs / Saving
+                Needs / Wants / Savings
               </h2>
               <p className="text-sm text-[var(--text-secondary)]">
-                Pie chart summary of categorized expenses
+                Live 3D-style rotating expense chart
               </p>
             </div>
           </div>
 
           {!hasChartData ? (
             <div className="rounded-[20px] border border-dashed border-[var(--border-soft)] bg-[var(--panel-3)] p-5 text-sm text-[var(--text-muted)] sm:p-6">
-              No wants, needs, or saving expenses available for the chart yet.
+              No needs, wants, or savings expenses available for the chart yet.
             </div>
           ) : (
             <div className="grid gap-4 lg:grid-cols-[0.95fr_1.05fr]">
-              <div className="h-[260px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Tooltip content={<CustomTooltip />} />
-                    <Pie
-                      data={chartData}
-                      dataKey="value"
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={52}
-                      outerRadius={92}
-                      paddingAngle={2}
-                      stroke="none"
-                      isAnimationActive
-                      animationDuration={900}
-                    >
-                      {chartData.map((entry) => (
-                        <Cell key={entry.name} fill={entry.color} />
+              <div className="relative h-[290px] w-full overflow-hidden rounded-[24px] border border-[var(--border-soft)] bg-[radial-gradient(circle_at_top,var(--panel-3),var(--panel-2))]">
+                <div className="absolute inset-x-8 top-5 h-16 rounded-full bg-white/8 blur-2xl" />
+                <div className="absolute inset-x-8 bottom-4 h-8 rounded-full bg-black/10 blur-xl" />
+
+                <motion.div
+                  key={`${chartData.map((item) => item.value).join("-")}-${chartTotal}`}
+                  animate={{ rotate: 360 }}
+                  transition={{
+                    duration: 14,
+                    ease: "linear",
+                    repeat: Infinity,
+                  }}
+                  className="absolute inset-0"
+                  style={{
+                    transform: "perspective(1200px) rotateX(58deg) scaleY(0.78)",
+                    transformStyle: "preserve-3d",
+                  }}
+                >
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Tooltip content={<CustomTooltip />} />
+
+                      {chartDepthLayers.map((layer) => (
+                        <Pie
+                          key={layer.id}
+                          data={chartData}
+                          dataKey="value"
+                          cx="50%"
+                          cy={`${50 + layer.offset / 10}%`}
+                          innerRadius={58}
+                          outerRadius={102}
+                          paddingAngle={2}
+                          stroke="none"
+                          isAnimationActive={false}
+                        >
+                          {chartData.map((entry) => (
+                            <Cell
+                              key={`${layer.id}-${entry.name}`}
+                              fill={chartPalette.depth}
+                            />
+                          ))}
+                        </Pie>
                       ))}
-                    </Pie>
-                  </PieChart>
-                </ResponsiveContainer>
+
+                      <Pie
+                        key={`top-${chartData.map((item) => item.value).join("-")}`}
+                        data={chartData}
+                        dataKey="value"
+                        cx="50%"
+                        cy="43%"
+                        innerRadius={56}
+                        outerRadius={100}
+                        paddingAngle={3}
+                        stroke="rgba(255,255,255,0.16)"
+                        strokeWidth={2}
+                        isAnimationActive
+                        animationDuration={900}
+                      >
+                        {chartData.map((entry) => (
+                          <Cell
+                            key={`top-${entry.name}-${entry.value}`}
+                            fill={entry.color}
+                          />
+                        ))}
+                      </Pie>
+                    </PieChart>
+                  </ResponsiveContainer>
+                </motion.div>
               </div>
 
               <div className="space-y-3">
@@ -736,6 +886,9 @@ function Dashboard() {
                       key={item.name}
                       whileHover={{ x: 4 }}
                       className="theme-surface-3 rounded-[20px] p-4"
+                      style={{
+                        boxShadow: `0 10px 28px ${item.shadowColor}`,
+                      }}
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex min-w-0 items-center gap-3">
@@ -771,7 +924,7 @@ function Dashboard() {
         className="theme-surface-2 rounded-[22px] p-4 sm:rounded-[24px] sm:p-5"
       >
         <div className="mb-4 flex items-center gap-2">
-          <div className="rounded-2xl bg-[var(--status-success-bg)] p-2.5 text-[var(--status-success-text)]">
+          <div className="rounded-2xl bg-[var(--status-warm-bg)] p-2.5 text-[var(--status-warm-text)]">
             <Clock3 size={18} />
           </div>
           <div className="min-w-0">
@@ -807,7 +960,15 @@ function Dashboard() {
                     </p>
                   </div>
 
-                  <span className="inline-flex w-fit rounded-full border border-[var(--border-soft)] bg-[var(--status-success-bg)] px-3 py-1 text-xs font-semibold text-[var(--status-success-text)] sm:ml-4">
+                  <span
+                    className={`inline-flex w-fit rounded-full border px-3 py-1 text-xs font-semibold sm:ml-4 ${
+                      Number(goal.progress || 0) >= 100
+                        ? "border-[var(--border-soft)] bg-[var(--status-success-bg)] text-[var(--status-success-text)]"
+                        : Number(goal.progress || 0) > 0
+                        ? "border-[var(--border-soft)] bg-[var(--status-warm-bg)] text-[var(--status-warm-text)]"
+                        : "border-[var(--border-soft)] bg-[var(--status-neutral-bg)] text-[var(--text-primary)]"
+                    }`}
+                  >
                     {goal.progress || 0}%
                   </span>
                 </div>
@@ -847,7 +1008,7 @@ function Dashboard() {
             <CalendarDays size={18} />
             <h3 className="font-semibold">Today Queue</h3>
           </div>
-          <p className="text-3xl font-semibold text-[var(--text-primary)]">
+          <p className="text-3xl font-semibold text-[var(--color-accent)]">
             {todayGoals.length}
           </p>
           <p className="mt-2 text-sm text-[var(--text-secondary)]">
@@ -872,6 +1033,29 @@ function Dashboard() {
           </p>
         </motion.div>
       </motion.section>
+
+      {salaryAmount > 0 && totalExpenses > salaryAmount ? (
+        <motion.section
+          variants={itemVariants}
+          className="rounded-[22px] border border-[var(--danger-border)] bg-[var(--danger-bg)] p-4 sm:rounded-[24px] sm:p-5"
+        >
+          <div className="flex items-start gap-3">
+            <div className="rounded-2xl bg-[var(--danger-bg)] p-2.5 text-[var(--danger-text)]">
+              <AlertTriangle size={18} />
+            </div>
+            <div className="min-w-0">
+              <h2 className="text-lg font-semibold text-[var(--danger-text)]">
+                Expense warning
+              </h2>
+              <p className="mt-1 text-sm leading-6 text-[var(--danger-text)]">
+                Your total tracked expenses are{" "}
+                {formatCurrency(totalExpenses - salaryAmount)} above your saved
+                salary.
+              </p>
+            </div>
+          </div>
+        </motion.section>
+      ) : null}
     </motion.div>
   );
 }

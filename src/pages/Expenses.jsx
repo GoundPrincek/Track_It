@@ -19,6 +19,7 @@ import {
   Check,
   Search,
   ArrowUpDown,
+  CheckCircle2,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { API_BASE } from "../config/api";
@@ -57,6 +58,7 @@ function Expenses() {
   const [salaryData, setSalaryData] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [loading, setLoading] = useState(false);
+  const [deletingAllExpenses, setDeletingAllExpenses] = useState(false);
 
   const [editingExpenseId, setEditingExpenseId] = useState(null);
   const [editForm, setEditForm] = useState(emptyEditForm);
@@ -73,6 +75,12 @@ function Expenses() {
   const [importError, setImportError] = useState("");
   const [importSuccess, setImportSuccess] = useState("");
   const [importedTransactions, setImportedTransactions] = useState([]);
+
+  const [pageMessage, setPageMessage] = useState({
+    type: "",
+    text: "",
+  });
+  const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false);
 
   const fetchExpensesAndSalary = async () => {
     try {
@@ -108,6 +116,16 @@ function Expenses() {
     fetchExpensesAndSalary();
   }, []);
 
+  useEffect(() => {
+    if (!pageMessage.text) return;
+
+    const timer = setTimeout(() => {
+      setPageMessage({ type: "", text: "" });
+    }, 2800);
+
+    return () => clearTimeout(timer);
+  }, [pageMessage]);
+
   const handleChange = (e) => {
     setForm((prev) => ({
       ...prev,
@@ -127,12 +145,12 @@ function Expenses() {
 
     try {
       if (!form.title.trim()) {
-        alert("Enter expense title");
+        setPageMessage({ type: "error", text: "Enter expense title" });
         return;
       }
 
       if (!form.amount || Number(form.amount) <= 0) {
-        alert("Enter valid amount");
+        setPageMessage({ type: "error", text: "Enter valid amount" });
         return;
       }
 
@@ -144,12 +162,18 @@ function Expenses() {
       };
 
       const res = await axios.post(API, payload);
-      alert(res.data.message || "Expense added successfully");
+      setPageMessage({
+        type: "success",
+        text: res.data.message || "Expense added successfully",
+      });
       setForm(emptyForm);
       fetchExpensesAndSalary();
     } catch (err) {
       console.log("Add expense error:", err);
-      alert(err.response?.data?.message || "Failed to add expense");
+      setPageMessage({
+        type: "error",
+        text: err.response?.data?.message || "Failed to add expense",
+      });
     }
   };
 
@@ -157,9 +181,50 @@ function Expenses() {
     try {
       await axios.delete(`${API}/${id}`);
       setExpenses((prev) => prev.filter((item) => item._id !== id));
+      setPageMessage({
+        type: "success",
+        text: "Expense deleted successfully",
+      });
     } catch (err) {
       console.log("Delete expense error:", err);
-      alert("Failed to delete expense");
+      setPageMessage({
+        type: "error",
+        text: "Failed to delete expense",
+      });
+    }
+  };
+
+  const handleDeleteAllExpenses = async () => {
+    try {
+      if (!expenses.length) {
+        setPageMessage({
+          type: "error",
+          text: "No expenses available to delete",
+        });
+        return;
+      }
+
+      setDeletingAllExpenses(true);
+
+      const res = await axios.delete(API);
+
+      setExpenses([]);
+      setEditingExpenseId(null);
+      setEditForm(emptyEditForm);
+      setShowDeleteAllConfirm(false);
+
+      setPageMessage({
+        type: "success",
+        text: res.data?.message || "All expenses deleted successfully",
+      });
+    } catch (err) {
+      console.log("Delete all expenses error:", err);
+      setPageMessage({
+        type: "error",
+        text: err.response?.data?.message || "Failed to delete all expenses",
+      });
+    } finally {
+      setDeletingAllExpenses(false);
     }
   };
 
@@ -181,12 +246,12 @@ function Expenses() {
   const handleSaveExpense = async (id) => {
     try {
       if (!editForm.title.trim()) {
-        alert("Title is required");
+        setPageMessage({ type: "error", text: "Title is required" });
         return;
       }
 
       if (!editForm.amount || Number(editForm.amount) <= 0) {
-        alert("Enter valid amount");
+        setPageMessage({ type: "error", text: "Enter valid amount" });
         return;
       }
 
@@ -209,9 +274,16 @@ function Expenses() {
 
       setEditingExpenseId(null);
       setEditForm(emptyEditForm);
+      setPageMessage({
+        type: "success",
+        text: "Expense updated successfully",
+      });
     } catch (err) {
       console.log("Update expense error:", err);
-      alert(err.response?.data?.message || "Failed to update expense");
+      setPageMessage({
+        type: "error",
+        text: err.response?.data?.message || "Failed to update expense",
+      });
     } finally {
       setUpdatingExpenseId(null);
     }
@@ -364,6 +436,48 @@ function Expenses() {
     }
   };
 
+  const getCategoryTheme = (rawCategory) => {
+    const category = String(rawCategory || "").toLowerCase();
+
+    if (category === "need") {
+      return {
+        badgeClass:
+          "border-[var(--border-soft)] bg-[var(--status-neutral-bg)] text-[var(--color-needs)]",
+        valueClass: "text-[var(--color-needs)]",
+      };
+    }
+
+    if (category === "want") {
+      return {
+        badgeClass:
+          "border-[var(--border-soft)] bg-[var(--status-warm-bg)] text-[var(--color-wants)]",
+        valueClass: "text-[var(--color-wants)]",
+      };
+    }
+
+    if (category === "saving") {
+      return {
+        badgeClass:
+          "border-[var(--border-soft)] bg-[var(--status-success-bg)] text-[var(--color-savings)]",
+        valueClass: "text-[var(--color-savings)]",
+      };
+    }
+
+    if (category === "uncategorized") {
+      return {
+        badgeClass:
+          "border-[var(--border-soft)] bg-[var(--panel-4)] text-[var(--text-primary)]",
+        valueClass: "text-[var(--text-primary)]",
+      };
+    }
+
+    return {
+      badgeClass:
+        "border-[var(--border-soft)] bg-[var(--panel-4)] text-[var(--text-primary)]",
+      valueClass: "text-[var(--text-primary)]",
+    };
+  };
+
   const salaryAmount = Number(salaryData?.salary || 0);
   const wantsLimit = Number(salaryData?.wants || 0);
   const needsLimit = Number(salaryData?.needs || 0);
@@ -441,6 +555,22 @@ function Expenses() {
     );
   }, [expenses]);
 
+  const hasTrackedSavedBudgetData = useMemo(() => {
+    return (
+      savedCategorySummary.want > 0 ||
+      savedCategorySummary.need > 0 ||
+      savedCategorySummary.saving > 0
+    );
+  }, [savedCategorySummary]);
+
+  const hasTrackedImportBudgetData = useMemo(() => {
+    return (
+      importedSummary.want > 0 ||
+      importedSummary.need > 0 ||
+      importedSummary.saving > 0
+    );
+  }, [importedSummary]);
+
   const filteredExpenses = useMemo(() => {
     let items = [...expenses];
 
@@ -483,8 +613,12 @@ function Expenses() {
     return items;
   }, [expenses, historySearch, historyCategoryFilter, historySort]);
 
-  const buildBudgetWarnings = (summary) => {
+  const buildBudgetWarnings = (summary, hasTrackedData) => {
     if (!salaryAmount || (!wantsLimit && !needsLimit && !savingsTarget)) {
+      return [];
+    }
+
+    if (!hasTrackedData) {
       return [];
     }
 
@@ -504,7 +638,7 @@ function Expenses() {
       });
     }
 
-    if (savingsTarget > 0 && summary.saving < savingsTarget) {
+    if (savingsTarget > 0 && summary.saving > 0 && summary.saving < savingsTarget) {
       warnings.push({
         key: "saving",
         label: `Savings target missed by ${formatCurrency(
@@ -517,13 +651,27 @@ function Expenses() {
   };
 
   const savedBudgetWarnings = useMemo(
-    () => buildBudgetWarnings(savedCategorySummary),
-    [savedCategorySummary, salaryAmount, wantsLimit, needsLimit, savingsTarget]
+    () => buildBudgetWarnings(savedCategorySummary, hasTrackedSavedBudgetData),
+    [
+      savedCategorySummary,
+      hasTrackedSavedBudgetData,
+      salaryAmount,
+      wantsLimit,
+      needsLimit,
+      savingsTarget,
+    ]
   );
 
   const importBudgetWarnings = useMemo(
-    () => buildBudgetWarnings(importedSummary),
-    [importedSummary, salaryAmount, wantsLimit, needsLimit, savingsTarget]
+    () => buildBudgetWarnings(importedSummary, hasTrackedImportBudgetData),
+    [
+      importedSummary,
+      hasTrackedImportBudgetData,
+      salaryAmount,
+      wantsLimit,
+      needsLimit,
+      savingsTarget,
+    ]
   );
 
   const overviewCards = [
@@ -532,8 +680,9 @@ function Expenses() {
       value: formatCurrency(totalExpenses),
       subtitle: "Overall spending",
       icon: Wallet,
-      valueClass: "text-[var(--status-warm-text)]",
-      iconSurface: "bg-[var(--status-warm-bg)] text-[var(--status-warm-text)]",
+      valueClass: "text-[var(--color-accent)]",
+      iconSurface:
+        "bg-[var(--status-neutral-bg)] text-[var(--color-accent)]",
     },
     {
       title: "Entries",
@@ -558,7 +707,7 @@ function Expenses() {
       value: formatCurrency(averageExpense),
       subtitle: "Per entry average",
       icon: TrendingUp,
-      valueClass: "text-[var(--status-success-text)]",
+      valueClass: "text-[var(--color-savings)]",
       iconSurface:
         "bg-[var(--status-success-bg)] text-[var(--status-success-text)]",
     },
@@ -569,19 +718,19 @@ function Expenses() {
       title: "Wants",
       value: formatCurrency(importedSummary.want),
       subtitle: "Based on final selected category",
-      valueClass: "text-[var(--status-warm-text)]",
+      valueClass: "text-[var(--color-wants)]",
     },
     {
       title: "Needs",
       value: formatCurrency(importedSummary.need),
       subtitle: "Editable by the user",
-      valueClass: "text-[var(--text-primary)]",
+      valueClass: "text-[var(--color-needs)]",
     },
     {
       title: "Savings",
       value: formatCurrency(importedSummary.saving),
       subtitle: "Auto-detected suggestions",
-      valueClass: "text-[var(--status-success-text)]",
+      valueClass: "text-[var(--color-savings)]",
     },
     {
       title: "Uncategorized",
@@ -631,8 +780,10 @@ function Expenses() {
     transition: { duration: 0.2, ease: "easeOut" },
   };
 
-  const warningDotClass =
-    "absolute left-3 top-3 h-3.5 w-3.5 rounded-full bg-red-500 shadow-[0_0_0_4px_rgba(239,68,68,0.12)]";
+  const warningDotStyle = {
+    backgroundColor: "var(--danger-text)",
+    boxShadow: "0 0 0 4px color-mix(in srgb, var(--danger-text) 18%, transparent)",
+  };
 
   return (
     <motion.div
@@ -681,6 +832,55 @@ function Expenses() {
           </motion.div>
         </div>
       </motion.section>
+
+      {(pageMessage.text || showDeleteAllConfirm) && (
+        <div className="space-y-3">
+          {pageMessage.text ? (
+            <div
+              className={`flex items-start gap-2 rounded-2xl border px-4 py-3 text-sm ${
+                pageMessage.type === "error"
+                  ? "border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger-text)]"
+                  : "border-[var(--border-soft)] bg-[var(--status-success-bg)] text-[var(--status-success-text)]"
+              }`}
+            >
+              {pageMessage.type === "error" ? (
+                <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+              ) : (
+                <CheckCircle2 size={16} className="mt-0.5 shrink-0" />
+              )}
+              <span>{pageMessage.text}</span>
+            </div>
+          ) : null}
+
+          {showDeleteAllConfirm ? (
+            <div className="rounded-2xl border border-[var(--danger-border)] bg-[var(--danger-bg)] px-4 py-4">
+              <p className="text-sm font-medium text-[var(--danger-text)]">
+                Delete all saved expenses? This action cannot be undone.
+              </p>
+              <div className="mt-3 flex flex-col gap-3 sm:flex-row">
+                <button
+                  type="button"
+                  onClick={handleDeleteAllExpenses}
+                  disabled={deletingAllExpenses}
+                  className="theme-danger-btn inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-medium disabled:opacity-60"
+                >
+                  <Trash2 size={16} />
+                  {deletingAllExpenses ? "Deleting..." : "Yes, Delete All"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteAllConfirm(false)}
+                  disabled={deletingAllExpenses}
+                  className="theme-muted-btn inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-medium disabled:opacity-60"
+                >
+                  <X size={16} />
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      )}
 
       <motion.section
         variants={listVariants}
@@ -835,15 +1035,17 @@ function Expenses() {
           >
             {importSummaryCards.map((card) => {
               const hasCardWarning =
-                (card.title === "Wants" &&
+                hasTrackedImportBudgetData &&
+                ((card.title === "Wants" &&
                   wantsLimit > 0 &&
                   importedSummary.want > wantsLimit) ||
-                (card.title === "Needs" &&
-                  needsLimit > 0 &&
-                  importedSummary.need > needsLimit) ||
-                (card.title === "Savings" &&
-                  savingsTarget > 0 &&
-                  importedSummary.saving < savingsTarget);
+                  (card.title === "Needs" &&
+                    needsLimit > 0 &&
+                    importedSummary.need > needsLimit) ||
+                  (card.title === "Savings" &&
+                    savingsTarget > 0 &&
+                    importedSummary.saving > 0 &&
+                    importedSummary.saving < savingsTarget));
 
               return (
                 <motion.div
@@ -854,7 +1056,8 @@ function Expenses() {
                 >
                   {hasCardWarning ? (
                     <motion.span
-                      className={warningDotClass}
+                      className="absolute left-3 top-3 h-3.5 w-3.5 rounded-full"
+                      style={warningDotStyle}
                       animate={{ opacity: [1, 0.25, 1], scale: [1, 1.15, 1] }}
                       transition={{ duration: 1, repeat: Infinity, ease: "easeInOut" }}
                     />
@@ -889,7 +1092,7 @@ function Expenses() {
             className="theme-surface-2 rounded-[22px] p-4 sm:rounded-[24px] sm:p-5"
           >
             <div className="mb-5 flex items-start gap-3">
-              <div className="rounded-2xl bg-[var(--status-neutral-bg)] p-2.5 text-[var(--text-primary)]">
+              <div className="rounded-2xl bg-[var(--status-neutral-bg)] p-2.5 text-[var(--color-accent)]">
                 <Target size={18} />
               </div>
               <div className="min-w-0">
@@ -907,15 +1110,18 @@ function Expenses() {
                 whileHover={{ y: -3 }}
                 className="theme-surface-3 relative rounded-[20px] p-4"
               >
-                {savedCategorySummary.need > needsLimit && needsLimit > 0 ? (
+                {hasTrackedSavedBudgetData &&
+                savedCategorySummary.need > needsLimit &&
+                needsLimit > 0 ? (
                   <motion.span
-                    className={warningDotClass}
+                    className="absolute left-3 top-3 h-3.5 w-3.5 rounded-full"
+                    style={warningDotStyle}
                     animate={{ opacity: [1, 0.25, 1], scale: [1, 1.15, 1] }}
                     transition={{ duration: 1, repeat: Infinity, ease: "easeInOut" }}
                   />
                 ) : null}
                 <p className="text-sm text-[var(--text-secondary)]">Needs Limit</p>
-                <h3 className="mt-1 text-lg font-semibold text-[var(--text-primary)] sm:text-xl">
+                <h3 className="mt-1 text-lg font-semibold text-[var(--color-needs)] sm:text-xl">
                   {formatCurrency(needsLimit)}
                 </h3>
               </motion.div>
@@ -924,15 +1130,18 @@ function Expenses() {
                 whileHover={{ y: -3 }}
                 className="theme-surface-3 relative rounded-[20px] p-4"
               >
-                {savedCategorySummary.want > wantsLimit && wantsLimit > 0 ? (
+                {hasTrackedSavedBudgetData &&
+                savedCategorySummary.want > wantsLimit &&
+                wantsLimit > 0 ? (
                   <motion.span
-                    className={warningDotClass}
+                    className="absolute left-3 top-3 h-3.5 w-3.5 rounded-full"
+                    style={warningDotStyle}
                     animate={{ opacity: [1, 0.25, 1], scale: [1, 1.15, 1] }}
                     transition={{ duration: 1, repeat: Infinity, ease: "easeInOut" }}
                   />
                 ) : null}
                 <p className="text-sm text-[var(--text-secondary)]">Wants Limit</p>
-                <h3 className="mt-1 text-lg font-semibold text-[var(--status-warm-text)] sm:text-xl">
+                <h3 className="mt-1 text-lg font-semibold text-[var(--color-wants)] sm:text-xl">
                   {formatCurrency(wantsLimit)}
                 </h3>
               </motion.div>
@@ -941,16 +1150,19 @@ function Expenses() {
                 whileHover={{ y: -3 }}
                 className="theme-surface-3 relative rounded-[20px] p-4"
               >
-                {savedCategorySummary.saving < savingsTarget &&
+                {hasTrackedSavedBudgetData &&
+                savedCategorySummary.saving > 0 &&
+                savedCategorySummary.saving < savingsTarget &&
                 savingsTarget > 0 ? (
                   <motion.span
-                    className={warningDotClass}
+                    className="absolute left-3 top-3 h-3.5 w-3.5 rounded-full"
+                    style={warningDotStyle}
                     animate={{ opacity: [1, 0.25, 1], scale: [1, 1.15, 1] }}
                     transition={{ duration: 1, repeat: Infinity, ease: "easeInOut" }}
                   />
                 ) : null}
                 <p className="text-sm text-[var(--text-secondary)]">Savings Target</p>
-                <h3 className="mt-1 text-lg font-semibold text-[var(--status-success-text)] sm:text-xl">
+                <h3 className="mt-1 text-lg font-semibold text-[var(--color-savings)] sm:text-xl">
                   {formatCurrency(savingsTarget)}
                 </h3>
               </motion.div>
@@ -960,7 +1172,8 @@ function Expenses() {
               <div className="theme-surface-3 relative rounded-[20px] p-4">
                 {savedBudgetWarnings.length > 0 ? (
                   <motion.span
-                    className={warningDotClass}
+                    className="absolute left-3 top-3 h-3.5 w-3.5 rounded-full"
+                    style={warningDotStyle}
                     animate={{ opacity: [1, 0.25, 1], scale: [1, 1.15, 1] }}
                     transition={{ duration: 1, repeat: Infinity, ease: "easeInOut" }}
                   />
@@ -971,7 +1184,7 @@ function Expenses() {
                     size={16}
                     className={
                       savedBudgetWarnings.length > 0
-                        ? "text-red-500"
+                        ? "text-[var(--danger-text)]"
                         : "text-[var(--status-success-text)]"
                     }
                   />
@@ -991,7 +1204,7 @@ function Expenses() {
                       <motion.div
                         key={warning.key}
                         variants={itemVariants}
-                        className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm font-medium text-red-600 dark:text-red-400"
+                        className="rounded-2xl border border-[var(--danger-border)] bg-[var(--danger-bg)] px-4 py-3 text-sm font-medium text-[var(--danger-text)]"
                       >
                         {warning.label}
                       </motion.div>
@@ -1003,7 +1216,9 @@ function Expenses() {
                     animate={{ opacity: 1, y: 0 }}
                     className="rounded-2xl border border-[var(--border-soft)] bg-[var(--status-success-bg)] px-4 py-3 text-sm text-[var(--status-success-text)]"
                   >
-                    All saved category totals are within the current budget limits.
+                    {hasTrackedSavedBudgetData
+                      ? "All saved category totals are within the current budget limits."
+                      : "No tracked needs, wants, or savings data yet for saved expenses."}
                   </motion.div>
                 )}
               </div>
@@ -1011,7 +1226,8 @@ function Expenses() {
               <div className="theme-surface-3 relative rounded-[20px] p-4">
                 {importBudgetWarnings.length > 0 ? (
                   <motion.span
-                    className={warningDotClass}
+                    className="absolute left-3 top-3 h-3.5 w-3.5 rounded-full"
+                    style={warningDotStyle}
                     animate={{ opacity: [1, 0.25, 1], scale: [1, 1.15, 1] }}
                     transition={{ duration: 1, repeat: Infinity, ease: "easeInOut" }}
                   />
@@ -1023,7 +1239,7 @@ function Expenses() {
                       size={16}
                       className={
                         importBudgetWarnings.length > 0
-                          ? "text-red-500"
+                          ? "text-[var(--danger-text)]"
                           : "text-[var(--status-warm-text)]"
                       }
                     />
@@ -1058,7 +1274,7 @@ function Expenses() {
                       <motion.div
                         key={warning.key}
                         variants={itemVariants}
-                        className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm font-medium text-red-600 dark:text-red-400"
+                        className="rounded-2xl border border-[var(--danger-border)] bg-[var(--danger-bg)] px-4 py-3 text-sm font-medium text-[var(--danger-text)]"
                       >
                         {warning.label}
                       </motion.div>
@@ -1070,7 +1286,9 @@ function Expenses() {
                     animate={{ opacity: 1, y: 0 }}
                     className="rounded-2xl border border-[var(--border-soft)] bg-[var(--status-success-bg)] px-4 py-3 text-sm text-[var(--status-success-text)]"
                   >
-                    Imported category totals are within the current budget limits.
+                    {hasTrackedImportBudgetData
+                      ? "Imported category totals are within the current budget limits."
+                      : "Imported data does not yet include tracked needs, wants, or savings totals."}
                   </motion.div>
                 )}
               </div>
@@ -1174,7 +1392,7 @@ function Expenses() {
               />
             </div>
 
-            <div className="md:col-span-2 pt-1">
+            <div className="md:col-span-2 flex flex-col gap-3 pt-1 sm:flex-row sm:flex-wrap">
               <motion.button
                 whileHover={{ y: -2, scale: 1.01 }}
                 whileTap={{ scale: 0.98 }}
@@ -1183,6 +1401,28 @@ function Expenses() {
               >
                 <Plus size={16} />
                 Add Expense
+              </motion.button>
+
+              <motion.button
+                whileHover={expenses.length ? { y: -2, scale: 1.01 } : {}}
+                whileTap={expenses.length ? { scale: 0.98 } : {}}
+                type="button"
+                onClick={() => {
+                  if (!expenses.length) {
+                    setPageMessage({
+                      type: "error",
+                      text: "No expenses available to delete",
+                    });
+                    return;
+                  }
+                  setShowDeleteAllConfirm(true);
+                  setPageMessage({ type: "", text: "" });
+                }}
+                disabled={deletingAllExpenses || expenses.length === 0}
+                className="theme-danger-btn inline-flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+              >
+                <Trash2 size={16} />
+                {deletingAllExpenses ? "Deleting All..." : "Delete All Expenses"}
               </motion.button>
             </div>
           </form>
@@ -1214,7 +1454,7 @@ function Expenses() {
               <p className="text-sm text-[var(--text-secondary)]">
                 Total Spent
               </p>
-              <h3 className="mt-1 break-words text-lg font-semibold text-[var(--status-warm-text)] sm:text-xl">
+              <h3 className="mt-1 break-words text-lg font-semibold text-[var(--color-accent)] sm:text-xl">
                 {formatCurrency(totalExpenses)}
               </h3>
             </motion.div>
@@ -1238,131 +1478,12 @@ function Expenses() {
               <p className="text-sm text-[var(--text-secondary)]">
                 Average Entry
               </p>
-              <h3 className="mt-1 break-words text-lg font-semibold text-[var(--status-success-text)] sm:text-xl">
+              <h3 className="mt-1 break-words text-lg font-semibold text-[var(--color-savings)] sm:text-xl">
                 {formatCurrency(averageExpense)}
               </h3>
             </motion.div>
           </div>
         </motion.div>
-      </motion.section>
-
-      <motion.section
-        variants={sectionVariants}
-        className="theme-surface-2 rounded-[22px] p-4 sm:rounded-[24px] sm:p-5"
-      >
-        <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="min-w-0">
-            <h2 className="text-lg font-semibold text-[var(--text-primary)]">
-              Imported Statement Preview
-            </h2>
-            <p className="text-sm text-[var(--text-secondary)]">
-              Review suggested categories and change them before saving into expenses.
-            </p>
-          </div>
-
-          <div className="theme-pill w-fit rounded-full px-3 py-1.5 text-xs font-medium">
-            {importedTransactions.length} imported entries
-          </div>
-        </div>
-
-        {importLoading ? (
-          <motion.div
-            initial={{ opacity: 0.4 }}
-            animate={{ opacity: 1 }}
-            transition={{ repeat: Infinity, repeatType: "reverse", duration: 0.8 }}
-            className="rounded-[20px] border border-dashed border-[var(--border-soft)] bg-[var(--panel-3)] p-5 text-sm text-[var(--text-muted)] sm:p-6"
-          >
-            Reading bank statement...
-          </motion.div>
-        ) : importedTransactions.length === 0 ? (
-          <div className="rounded-[20px] border border-dashed border-[var(--border-soft)] bg-[var(--panel-3)] p-5 text-sm text-[var(--text-muted)] sm:p-6">
-            No imported transactions yet. Upload a CSV or PDF statement above.
-          </div>
-        ) : (
-          <motion.div
-            variants={listVariants}
-            initial="hidden"
-            animate="show"
-            className="space-y-3"
-          >
-            <AnimatePresence>
-              {importedTransactions.map((item) => (
-                <motion.div
-                  key={item.id}
-                  variants={itemVariants}
-                  exit="exit"
-                  whileHover={{ y: -3, scale: 1.005 }}
-                  className="theme-surface-3 rounded-[20px] p-4"
-                >
-                  <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[1.1fr_0.7fr_0.7fr_0.8fr]">
-                    <div className="min-w-0">
-                      <p className="text-xs uppercase tracking-[0.18em] text-[var(--text-muted)]">
-                        Description
-                      </p>
-                      <h3 className="mt-1 break-words text-base font-semibold text-[var(--text-primary)]">
-                        {item.description}
-                      </h3>
-                      <p className="mt-2 text-sm text-[var(--text-soft)]">
-                        {formatDate(item.date)}
-                      </p>
-                    </div>
-
-                    <div className="min-w-0">
-                      <p className="text-xs uppercase tracking-[0.18em] text-[var(--text-muted)]">
-                        Amount
-                      </p>
-                      <h3 className="mt-1 break-words text-base font-semibold text-[var(--status-warm-text)]">
-                        {formatCurrency(item.amount || 0)}
-                      </h3>
-                    </div>
-
-                    <div className="min-w-0">
-                      <p className="text-xs uppercase tracking-[0.18em] text-[var(--text-muted)]">
-                        Suggested
-                      </p>
-                      <span className="mt-1 inline-flex rounded-full border border-[var(--border-soft)] bg-[var(--status-neutral-bg)] px-3 py-1.5 text-xs font-semibold capitalize text-[var(--text-primary)]">
-                        {item.suggestedCategory}
-                      </span>
-                    </div>
-
-                    <div className="min-w-0">
-                      <label className="mb-2 block text-xs uppercase tracking-[0.18em] text-[var(--text-muted)]">
-                        Final Category
-                      </label>
-                      <select
-                        value={item.category}
-                        onChange={(e) =>
-                          handleImportedCategoryChange(item.id, e.target.value)
-                        }
-                        className="w-full rounded-2xl border px-4 py-3 text-sm capitalize outline-none"
-                      >
-                        {IMPORT_CATEGORIES.map((category) => (
-                          <option key={category} value={category}>
-                            {category}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
-            </AnimatePresence>
-
-            <div className="pt-2">
-              <motion.button
-                whileHover={{ y: -2, scale: 1.01 }}
-                whileTap={{ scale: 0.98 }}
-                type="button"
-                onClick={handleSaveImportedExpenses}
-                disabled={importSaving}
-                className="theme-primary-btn inline-flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
-              >
-                <Save size={16} />
-                {importSaving ? "Saving Imported Expenses..." : "Save Imported Expenses"}
-              </motion.button>
-            </div>
-          </motion.div>
-        )}
       </motion.section>
 
       <motion.section
@@ -1472,6 +1593,7 @@ function Expenses() {
               {filteredExpenses.map((item) => {
                 const isEditing = editingExpenseId === item._id;
                 const isUpdating = updatingExpenseId === item._id;
+                const categoryTheme = getCategoryTheme(item.category);
 
                 return (
                   <motion.div
@@ -1497,7 +1619,9 @@ function Expenses() {
                                 {item.title}
                               </h3>
 
-                              <span className="rounded-full border border-[var(--border-soft)] bg-[var(--status-neutral-bg)] px-2.5 py-1 text-xs font-semibold text-[var(--text-primary)]">
+                              <span
+                                className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${categoryTheme.badgeClass}`}
+                              >
                                 {item.category || "General"}
                               </span>
                             </div>
@@ -1514,7 +1638,7 @@ function Expenses() {
                           </div>
 
                           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                            <span className="break-words text-base font-semibold text-[var(--status-warm-text)]">
+                            <span className={`break-words text-base font-semibold ${categoryTheme.valueClass}`}>
                               {formatCurrency(item.amount || 0)}
                             </span>
 

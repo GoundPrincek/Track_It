@@ -2,6 +2,12 @@ const mongoose = require("mongoose");
 
 const salarySchema = new mongoose.Schema(
   {
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+      index: true,
+    },
     salary: {
       type: Number,
       required: true,

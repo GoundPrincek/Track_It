@@ -11,6 +11,7 @@ import {
   TrendingUp,
   Save,
   Trash2,
+  PlayCircle,
 } from "lucide-react";
 import { API_BASE } from "../config/api";
 
@@ -33,6 +34,7 @@ function Todo() {
   const [form, setForm] = useState(emptyForm);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [savingId, setSavingId] = useState(null);
+  const [startingSessionId, setStartingSessionId] = useState(null);
   const [progressDrafts, setProgressDrafts] = useState({});
 
   const fetchTodos = async () => {
@@ -116,6 +118,19 @@ function Todo() {
     }
   };
 
+  const handleStartSession = async (id) => {
+    try {
+      setStartingSessionId(id);
+      await axios.patch(`${API}/${id}/start-session`);
+      fetchTodos();
+    } catch (err) {
+      console.log("Start session error:", err);
+      alert(err.response?.data?.message || "Failed to start session");
+    } finally {
+      setStartingSessionId(null);
+    }
+  };
+
   const handleMarkComplete = async (id) => {
     try {
       setSavingId(id);
@@ -171,6 +186,43 @@ function Todo() {
     }
   };
 
+  const formatDateTime = (value) => {
+    if (!value) return "Not started";
+    try {
+      return new Date(value).toLocaleString("en-IN", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+      });
+    } catch {
+      return "Not started";
+    }
+  };
+
+  const getElapsedSessionLabel = (value) => {
+    if (!value) return "";
+    const started = new Date(value);
+    const diffMs = currentTime.getTime() - started.getTime();
+
+    if (Number.isNaN(started.getTime()) || diffMs < 0) return "";
+
+    const totalMinutes = Math.floor(diffMs / (1000 * 60));
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+
+    if (hours <= 0) {
+      return `${minutes} min active`;
+    }
+
+    if (minutes === 0) {
+      return `${hours} hr active`;
+    }
+
+    return `${hours} hr ${minutes} min active`;
+  };
+
   const getPriorityStyle = (priority) => {
     if (priority === "high") {
       return "border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger-text)]";
@@ -178,7 +230,42 @@ function Todo() {
     if (priority === "low") {
       return "border-[var(--border-soft)] bg-[var(--status-success-bg)] text-[var(--status-success-text)]";
     }
-    return "border-[var(--border-soft)] bg-[var(--status-neutral-bg)] text-[var(--text-primary)]";
+    return "border-[var(--border-soft)] bg-[var(--status-warm-bg)] text-[var(--status-warm-text)]";
+  };
+
+  const getProgressState = (progress) => {
+    const safeProgress = Number(progress || 0);
+
+    if (safeProgress >= 100) {
+      return {
+        label: "Completed",
+        badgeClass:
+          "border-[var(--border-soft)] bg-[var(--status-success-bg)] text-[var(--status-success-text)]",
+        valueClass: "text-[var(--status-success-text)]",
+        barClass:
+          "bg-[linear-gradient(90deg,var(--color-savings),var(--status-success-text))]",
+      };
+    }
+
+    if (safeProgress > 0) {
+      return {
+        label: "In Progress",
+        badgeClass:
+          "border-[var(--border-soft)] bg-[var(--status-warm-bg)] text-[var(--status-warm-text)]",
+        valueClass: "text-[var(--status-warm-text)]",
+        barClass:
+          "bg-[linear-gradient(90deg,var(--status-warm-text),var(--accent-warm))]",
+      };
+    }
+
+    return {
+      label: "Pending",
+      badgeClass:
+        "border-[var(--border-soft)] bg-[var(--status-neutral-bg)] text-[var(--color-accent)]",
+      valueClass: "text-[var(--color-accent)]",
+      barClass:
+        "bg-[linear-gradient(90deg,var(--accent),var(--accent-2))]",
+    };
   };
 
   const statCards = [
@@ -189,7 +276,7 @@ function Todo() {
       icon: ListTodo,
       valueClass: "text-[var(--text-primary)]",
       iconSurface:
-        "bg-[var(--status-success-bg)] text-[var(--status-success-text)]",
+        "bg-[var(--status-neutral-bg)] text-[var(--color-accent)]",
     },
     {
       title: "Completed",
@@ -205,18 +292,18 @@ function Todo() {
       value: inProgressGoals,
       subtitle: "Currently moving",
       icon: Clock3,
-      valueClass: "text-[var(--text-primary)]",
+      valueClass: "text-[var(--status-warm-text)]",
       iconSurface:
-        "bg-[var(--status-neutral-bg)] text-[var(--text-primary)]",
+        "bg-[var(--status-warm-bg)] text-[var(--status-warm-text)]",
     },
     {
       title: "Pending",
       value: pendingGoals,
       subtitle: "Waiting to be done",
       icon: Target,
-      valueClass: "text-[var(--status-warm-text)]",
+      valueClass: "text-[var(--color-accent)]",
       iconSurface:
-        "bg-[var(--status-warm-bg)] text-[var(--status-warm-text)]",
+        "bg-[var(--status-neutral-bg)] text-[var(--color-accent)]",
     },
   ];
 
@@ -529,7 +616,7 @@ function Todo() {
             className="theme-surface-2 rounded-[22px] p-4 sm:rounded-[24px] sm:p-5"
           >
             <div className="mb-5 flex items-start gap-3">
-              <div className="rounded-2xl bg-[var(--status-neutral-bg)] p-2.5 text-[var(--text-primary)]">
+              <div className="rounded-2xl bg-[var(--status-neutral-bg)] p-2.5 text-[var(--color-accent)]">
                 <Clock3 size={18} />
               </div>
               <div className="min-w-0">
@@ -549,46 +636,65 @@ function Todo() {
             ) : (
               <div className="space-y-3">
                 <AnimatePresence>
-                  {todayTimelineTodos.map((todo, index) => (
-                    <motion.div
-                      key={todo._id}
-                      initial={{ opacity: 0, x: -18 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: 18 }}
-                      transition={{
-                        duration: 0.3,
-                        delay: index * 0.05,
-                        ease: "easeOut",
-                      }}
-                      whileHover={{ y: -2 }}
-                      className="theme-surface-3 rounded-[20px] p-4"
-                    >
-                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                        <div className="min-w-0">
-                          <h3 className="break-words text-base font-semibold text-[var(--text-primary)]">
-                            {todo.title}
-                          </h3>
-                          <p className="mt-1 text-sm text-[var(--text-secondary)]">
-                            {todo.startTime || "--:--"} to {todo.endTime || "--:--"}
-                          </p>
-                        </div>
+                  {todayTimelineTodos.map((todo, index) => {
+                    const progressMeta = getProgressState(todo.progress);
 
-                        <div className="flex flex-wrap gap-2">
-                          <span
-                            className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold capitalize ${getPriorityStyle(
-                              todo.priority
-                            )}`}
-                          >
-                            {todo.priority || "medium"}
-                          </span>
+                    return (
+                      <motion.div
+                        key={todo._id}
+                        initial={{ opacity: 0, x: -18 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: 18 }}
+                        transition={{
+                          duration: 0.3,
+                          delay: index * 0.05,
+                          ease: "easeOut",
+                        }}
+                        whileHover={{ y: -2 }}
+                        className="theme-surface-3 rounded-[20px] p-4"
+                      >
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                          <div className="min-w-0">
+                            <h3 className="break-words text-base font-semibold text-[var(--text-primary)]">
+                              {todo.title}
+                            </h3>
+                            <p className="mt-1 text-sm text-[var(--text-secondary)]">
+                              {todo.startTime || "--:--"} to {todo.endTime || "--:--"}
+                            </p>
 
-                          <span className="inline-flex rounded-full border border-[var(--border-soft)] bg-[var(--status-success-bg)] px-3 py-1 text-xs font-semibold text-[var(--status-success-text)]">
-                            {Number(todo.progress || 0)}%
-                          </span>
+                            {todo.sessionStartedAt ? (
+                              <p className="mt-2 text-xs text-[var(--text-muted)]">
+                                Session started: {formatDateTime(todo.sessionStartedAt)} ·{" "}
+                                {getElapsedSessionLabel(todo.sessionStartedAt)}
+                              </p>
+                            ) : null}
+                          </div>
+
+                          <div className="flex flex-wrap gap-2">
+                            <span
+                              className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold capitalize ${getPriorityStyle(
+                                todo.priority
+                              )}`}
+                            >
+                              {todo.priority || "medium"}
+                            </span>
+
+                            <span
+                              className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${progressMeta.badgeClass}`}
+                            >
+                              {Number(todo.progress || 0)}%
+                            </span>
+
+                            {todo.sessionStartedAt && Number(todo.progress || 0) < 100 ? (
+                              <span className="inline-flex rounded-full border border-[var(--border-soft)] bg-[var(--status-warm-bg)] px-3 py-1 text-xs font-semibold text-[var(--status-warm-text)]">
+                                Session Active
+                              </span>
+                            ) : null}
+                          </div>
                         </div>
-                      </div>
-                    </motion.div>
-                  ))}
+                      </motion.div>
+                    );
+                  })}
                 </AnimatePresence>
               </div>
             )}
@@ -622,7 +728,7 @@ function Todo() {
                 {
                   label: "Today Planned",
                   value: todayTimelineTodos.length,
-                  valueClass: "text-[var(--text-primary)]",
+                  valueClass: "text-[var(--color-accent)]",
                 },
                 {
                   label: "Active Goals",
@@ -663,7 +769,7 @@ function Todo() {
               All Goals
             </h2>
             <p className="text-sm text-[var(--text-secondary)]">
-              Update progress, complete tasks, or remove finished items
+              Update progress, start sessions, complete tasks, or remove finished items
             </p>
           </div>
 
@@ -686,6 +792,11 @@ function Todo() {
                 const progressValue = Number(
                   progressDrafts[todo._id] ?? todo.progress ?? 0
                 );
+
+                const isSessionActive =
+                  Boolean(todo.sessionStartedAt) && Number(todo.progress || 0) < 100;
+
+                const progressMeta = getProgressState(progressValue);
 
                 return (
                   <motion.div
@@ -721,6 +832,12 @@ function Todo() {
                             <span className="inline-flex rounded-full border border-[var(--border-soft)] bg-[var(--panel-4)] px-2.5 py-1 text-xs font-semibold capitalize text-[var(--text-primary)]">
                               {todo.category || "productivity"}
                             </span>
+
+                            {isSessionActive ? (
+                              <span className="inline-flex rounded-full border border-[var(--border-soft)] bg-[var(--status-warm-bg)] px-2.5 py-1 text-xs font-semibold text-[var(--status-warm-text)]">
+                                Session Active
+                              </span>
+                            ) : null}
                           </div>
 
                           {todo.description ? (
@@ -740,16 +857,26 @@ function Todo() {
                               <b>Time:</b> {todo.startTime || "--:--"} -{" "}
                               {todo.endTime || "--:--"}
                             </span>
+
+                            {todo.sessionStartedAt ? (
+                              <span className="rounded-xl bg-[var(--panel-4)] px-3 py-1.5">
+                                <b>Session:</b> {formatDateTime(todo.sessionStartedAt)}
+                              </span>
+                            ) : null}
+
+                            {todo.sessionStartedAt ? (
+                              <span className="rounded-xl bg-[var(--panel-4)] px-3 py-1.5">
+                                <b>Elapsed:</b> {getElapsedSessionLabel(todo.sessionStartedAt)}
+                              </span>
+                            ) : null}
                           </div>
                         </div>
 
                         <div className="flex shrink-0 flex-wrap gap-2 lg:justify-end">
-                          <span className="inline-flex rounded-full border border-[var(--border-soft)] bg-[var(--status-success-bg)] px-3 py-1.5 text-xs font-semibold text-[var(--status-success-text)]">
-                            {Number(todo.progress || 0) >= 100
-                              ? "Completed"
-                              : progressValue > 0
-                              ? "In Progress"
-                              : "Pending"}
+                          <span
+                            className={`inline-flex rounded-full border px-3 py-1.5 text-xs font-semibold ${progressMeta.badgeClass}`}
+                          >
+                            {progressMeta.label}
                           </span>
                         </div>
                       </div>
@@ -763,7 +890,7 @@ function Todo() {
                             key={progressValue}
                             initial={{ scale: 0.92, opacity: 0.7 }}
                             animate={{ scale: 1, opacity: 1 }}
-                            className="text-sm font-medium text-[var(--text-primary)]"
+                            className={`text-sm font-medium ${progressMeta.valueClass}`}
                           >
                             {progressValue}%
                           </motion.p>
@@ -785,12 +912,31 @@ function Todo() {
                             initial={{ width: 0 }}
                             animate={{ width: `${progressValue}%` }}
                             transition={{ duration: 0.35, ease: "easeOut" }}
-                            className="h-2.5 rounded-full bg-[linear-gradient(90deg,var(--accent),var(--accent-2))]"
+                            className={`h-2.5 rounded-full ${progressMeta.barClass}`}
                           />
                         </div>
                       </div>
 
-                      <div className="flex flex-col gap-3 sm:flex-row">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                        <motion.button
+                          whileHover={{ y: -2 }}
+                          whileTap={{ scale: 0.98 }}
+                          type="button"
+                          onClick={() => handleStartSession(todo._id)}
+                          disabled={
+                            startingSessionId === todo._id ||
+                            Number(progressValue) >= 100
+                          }
+                          className="theme-muted-btn inline-flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                        >
+                          <PlayCircle size={16} />
+                          {startingSessionId === todo._id
+                            ? "Starting..."
+                            : isSessionActive
+                            ? "Restart Session"
+                            : "Start Session"}
+                        </motion.button>
+
                         <motion.button
                           whileHover={{ y: -2 }}
                           whileTap={{ scale: 0.98 }}

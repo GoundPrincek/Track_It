@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const mongoose = require("mongoose");
 const Expense = require("../models/Expense");
 const multer = require("multer");
 const csvParser = require("csv-parser");
@@ -66,6 +67,27 @@ const MANUAL_CATEGORIES = [
 const ALL_ALLOWED_CATEGORIES = [...IMPORT_CATEGORIES, ...MANUAL_CATEGORIES];
 
 const normalizeText = (value) => String(value || "").trim().toLowerCase();
+
+const getUserId = (req) => {
+  const headerUserId = req.headers["x-user-id"];
+  return String(headerUserId || "").trim();
+};
+
+const ensureUserId = (req, res) => {
+  const userId = getUserId(req);
+
+  if (!userId) {
+    res.status(401).json({ message: "User not found. Please login again." });
+    return null;
+  }
+
+  if (!mongoose.Types.ObjectId.isValid(userId)) {
+    res.status(401).json({ message: "Invalid user session. Please login again." });
+    return null;
+  }
+
+  return userId;
+};
 
 const cleanAmount = (value) => {
   if (value === undefined || value === null || value === "") return 0;
@@ -305,7 +327,10 @@ const isBrokenPdfStructureError = (err) => {
 // GET ALL EXPENSES
 router.get("/", async (req, res) => {
   try {
-    const expenses = await Expense.find().sort({ createdAt: -1 });
+    const userId = ensureUserId(req, res);
+    if (!userId) return;
+
+    const expenses = await Expense.find({ user: userId }).sort({ createdAt: -1 });
     res.status(200).json(expenses);
   } catch (err) {
     console.log("Get expenses error:", err.message);
@@ -316,6 +341,9 @@ router.get("/", async (req, res) => {
 // ADD EXPENSE
 router.post("/", async (req, res) => {
   try {
+    const userId = ensureUserId(req, res);
+    if (!userId) return;
+
     const { title, amount, category, date } = req.body;
 
     if (!title || !title.trim()) {
@@ -327,8 +355,10 @@ router.post("/", async (req, res) => {
     }
 
     const newExpense = new Expense({
+      user: userId,
       title: title.trim(),
       amount: Number(amount),
+      suggestedCategory: "",
       category: category || "General",
       date: date || Date.now(),
     });
@@ -348,6 +378,9 @@ router.post("/", async (req, res) => {
 // IMPORT CSV BANK STATEMENT
 router.post("/import/csv", upload.single("file"), async (req, res) => {
   try {
+    const userId = ensureUserId(req, res);
+    if (!userId) return;
+
     if (!req.file) {
       return res.status(400).json({ message: "CSV file is required" });
     }
@@ -384,6 +417,9 @@ router.post("/import/csv", upload.single("file"), async (req, res) => {
 // IMPORT PDF BANK STATEMENT
 router.post("/import/pdf", upload.single("file"), async (req, res) => {
   try {
+    const userId = ensureUserId(req, res);
+    if (!userId) return;
+
     if (!req.file) {
       return res.status(400).json({ message: "PDF file is required" });
     }
@@ -438,6 +474,9 @@ router.post("/import/pdf", upload.single("file"), async (req, res) => {
 // SAVE IMPORTED TRANSACTIONS TO EXPENSES
 router.post("/import/save", async (req, res) => {
   try {
+    const userId = ensureUserId(req, res);
+    if (!userId) return;
+
     const transactions = Array.isArray(req.body?.transactions)
       ? req.body.transactions
       : [];
@@ -456,12 +495,17 @@ router.post("/import/save", async (req, res) => {
         const category = IMPORT_CATEGORIES.includes(item?.category)
           ? item.category
           : "uncategorized";
+        const suggestedCategory = IMPORT_CATEGORIES.includes(item?.suggestedCategory)
+          ? item.suggestedCategory
+          : "uncategorized";
 
         if (!title || amount <= 0) return null;
 
         return {
+          user: userId,
           title,
           amount: Number(amount),
+          suggestedCategory,
           category,
           date,
         };
@@ -474,19 +518,7 @@ router.post("/import/save", async (req, res) => {
       });
     }
 
-    const savedExpenses = [];
-
-    for (const item of validTransactions) {
-      const newExpense = new Expense({
-        title: item.title,
-        amount: item.amount,
-        category: item.category,
-        date: item.date,
-      });
-
-      const saved = await newExpense.save();
-      savedExpenses.push(saved);
-    }
+    const savedExpenses = await Expense.insertMany(validTransactions);
 
     return res.status(201).json({
       message: "Imported expenses saved successfully",
@@ -501,9 +533,35 @@ router.post("/import/save", async (req, res) => {
   }
 });
 
+// DELETE ALL EXPENSES FOR LOGGED-IN USER
+router.delete("/", async (req, res) => {
+  try {
+    const userId = ensureUserId(req, res);
+    if (!userId) return;
+
+    const result = await Expense.deleteMany({ user: userId });
+
+    return res.status(200).json({
+      message:
+        result.deletedCount > 0
+          ? `${result.deletedCount} expenses deleted successfully`
+          : "No expenses found to delete",
+      count: result.deletedCount,
+    });
+  } catch (err) {
+    console.log("Delete all expenses error:", err.message);
+    return res.status(500).json({
+      message: "Failed to delete all expenses",
+    });
+  }
+});
+
 // UPDATE FULL EXPENSE
 router.patch("/:id", async (req, res) => {
   try {
+    const userId = ensureUserId(req, res);
+    if (!userId) return;
+
     const { title, amount, category, date } = req.body;
 
     if (!title || !String(title).trim()) {
@@ -526,8 +584,8 @@ router.patch("/:id", async (req, res) => {
       });
     }
 
-    const updatedExpense = await Expense.findByIdAndUpdate(
-      req.params.id,
+    const updatedExpense = await Expense.findOneAndUpdate(
+      { _id: req.params.id, user: userId },
       {
         title: String(title).trim(),
         amount: Number(cleanedAmount),
@@ -556,6 +614,9 @@ router.patch("/:id", async (req, res) => {
 // UPDATE EXPENSE CATEGORY
 router.patch("/:id/category", async (req, res) => {
   try {
+    const userId = ensureUserId(req, res);
+    if (!userId) return;
+
     const { category } = req.body;
 
     if (!category || !ALL_ALLOWED_CATEGORIES.includes(category)) {
@@ -564,8 +625,8 @@ router.patch("/:id/category", async (req, res) => {
       });
     }
 
-    const updatedExpense = await Expense.findByIdAndUpdate(
-      req.params.id,
+    const updatedExpense = await Expense.findOneAndUpdate(
+      { _id: req.params.id, user: userId },
       { category },
       { new: true }
     );
@@ -589,7 +650,13 @@ router.patch("/:id/category", async (req, res) => {
 // DELETE EXPENSE
 router.delete("/:id", async (req, res) => {
   try {
-    const deletedExpense = await Expense.findByIdAndDelete(req.params.id);
+    const userId = ensureUserId(req, res);
+    if (!userId) return;
+
+    const deletedExpense = await Expense.findOneAndDelete({
+      _id: req.params.id,
+      user: userId,
+    });
 
     if (!deletedExpense) {
       return res.status(404).json({ message: "Expense not found" });

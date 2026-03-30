@@ -1,7 +1,16 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate, Link } from "react-router-dom";
-import { Lock, Mail, User, ArrowRight, Eye, EyeOff } from "lucide-react";
+import {
+  Lock,
+  Mail,
+  User,
+  ArrowRight,
+  Eye,
+  EyeOff,
+  CheckCircle2,
+  AlertTriangle,
+} from "lucide-react";
 import { API_BASE } from "../config/api";
 
 function Login() {
@@ -10,25 +19,46 @@ function Login() {
   const [isRegister, setIsRegister] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [formMessage, setFormMessage] = useState({
+    type: "",
+    text: "",
+  });
   const [form, setForm] = useState({
     name: "",
     email: "",
     password: "",
   });
 
+  useEffect(() => {
+    if (!formMessage.text) return;
+
+    const timer = setTimeout(() => {
+      setFormMessage({ type: "", text: "" });
+    }, 2800);
+
+    return () => clearTimeout(timer);
+  }, [formMessage]);
+
   const handleSubmit = async () => {
     try {
       if (!form.email.trim() || !form.password.trim()) {
-        alert("Please fill in email and password");
+        setFormMessage({
+          type: "error",
+          text: "Please fill in email and password",
+        });
         return;
       }
 
       if (isRegister && !form.name.trim()) {
-        alert("Please enter your name");
+        setFormMessage({
+          type: "error",
+          text: "Please enter your name",
+        });
         return;
       }
 
       setLoading(true);
+      setFormMessage({ type: "", text: "" });
 
       if (isRegister) {
         const res = await axios.post(`${API_BASE}/auth/register`, {
@@ -37,7 +67,10 @@ function Login() {
           password: form.password,
         });
 
-        alert(res.data.message);
+        setFormMessage({
+          type: "success",
+          text: res.data.message || "Account created successfully",
+        });
         setIsRegister(false);
       } else {
         const res = await axios.post(`${API_BASE}/auth/login`, {
@@ -50,7 +83,6 @@ function Login() {
           localStorage.setItem("token", res.data.token);
         }
 
-        alert(res.data.message);
         navigate("/dashboard");
       }
 
@@ -60,7 +92,10 @@ function Login() {
         password: "",
       });
     } catch (err) {
-      alert(err.response?.data?.message || "Something went wrong");
+      setFormMessage({
+        type: "error",
+        text: err.response?.data?.message || "Something went wrong",
+      });
     } finally {
       setLoading(false);
     }
@@ -153,6 +188,23 @@ function Login() {
                     : "Sign in to continue to your dashboard."}
                 </p>
               </div>
+
+              {formMessage.text ? (
+                <div
+                  className={`mb-4 flex items-start gap-2 rounded-2xl border px-4 py-3 text-sm ${
+                    formMessage.type === "error"
+                      ? "border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger-text)]"
+                      : "border-[var(--border-soft)] bg-[var(--status-success-bg)] text-[var(--status-success-text)]"
+                  }`}
+                >
+                  {formMessage.type === "error" ? (
+                    <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+                  ) : (
+                    <CheckCircle2 size={16} className="mt-0.5 shrink-0" />
+                  )}
+                  <span>{formMessage.text}</span>
+                </div>
+              ) : null}
 
               <div className="space-y-4">
                 {isRegister && (
@@ -253,6 +305,7 @@ function Login() {
                   type="button"
                   onClick={() => {
                     setIsRegister((prev) => !prev);
+                    setFormMessage({ type: "", text: "" });
                     setForm({
                       name: "",
                       email: "",
