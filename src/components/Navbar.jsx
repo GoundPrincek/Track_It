@@ -14,6 +14,8 @@ import {
   Moon,
   Bell,
   BarChart3,
+  Sparkles,
+  ChevronRight,
 } from "lucide-react";
 
 const navItems = [
@@ -44,7 +46,12 @@ const extraFeatureItems = [
   },
 ];
 
-const Navbar = ({ theme = "dark", setTheme = () => {} }) => {
+const Navbar = ({
+  theme = "dark",
+  setTheme = () => {},
+  notificationCount = 0,
+  highPriorityCount = 0,
+}) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const navigate = useNavigate();
 
@@ -81,18 +88,21 @@ const Navbar = ({ theme = "dark", setTheme = () => {} }) => {
   };
 
   const desktopLinkClasses = ({ isActive }) =>
-    `flex items-center gap-2 rounded-2xl px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
+    `group flex items-center gap-2 rounded-2xl px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
       isActive
         ? "border border-[var(--border-strong)] bg-[var(--nav-active-bg)] text-[var(--text-primary)] shadow-[var(--shadow-soft)]"
         : "border border-transparent text-[var(--text-secondary)] hover:border-[var(--border-soft)] hover:bg-[var(--panel-2)] hover:text-[var(--text-primary)]"
     }`;
 
   const mobileNavLinkClasses = ({ isActive }) =>
-    `inline-flex min-w-fit items-center gap-2 whitespace-nowrap rounded-2xl px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
+    `group inline-flex min-w-fit items-center gap-3 whitespace-nowrap rounded-2xl px-4 py-3 text-sm font-medium transition-all duration-200 ${
       isActive
         ? "border border-[var(--border-strong)] bg-[var(--nav-active-bg)] text-[var(--text-primary)] shadow-[var(--shadow-soft)]"
         : "border border-transparent bg-[var(--panel-1)] text-[var(--text-secondary)] hover:border-[var(--border-soft)] hover:bg-[var(--panel-2)] hover:text-[var(--text-primary)]"
     }`;
+
+  const badgeLabel =
+    notificationCount > 99 ? "99+" : String(notificationCount || 0);
 
   return (
     <>
@@ -100,7 +110,7 @@ const Navbar = ({ theme = "dark", setTheme = () => {} }) => {
         initial={{ opacity: 0, y: -14 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, ease: "easeOut" }}
-        className="sticky top-0 z-50 border-b border-[var(--border-soft)] bg-[var(--header-bg)]/92 backdrop-blur-xl"
+        className="sticky top-0 z-50 border-b border-[var(--border-soft)] bg-[var(--header-bg)]/88 backdrop-blur-2xl"
       >
         <div className="flex w-full items-center justify-between gap-3 px-3 py-3 sm:px-4 md:px-5 xl:px-6">
           <div className="flex min-w-0 items-center gap-2 sm:gap-3">
@@ -124,9 +134,14 @@ const Navbar = ({ theme = "dark", setTheme = () => {} }) => {
                 <div className="shrink-0 rounded-2xl border border-[var(--border-soft)] bg-[var(--brand-bg)] px-3 py-2.5 text-sm font-semibold text-[var(--text-primary)] shadow-[var(--shadow-soft)] sm:px-3.5">
                   TrackIt
                 </div>
-                <span className="hidden truncate text-sm text-[var(--text-muted)] sm:block">
-                  Productivity dashboard
-                </span>
+                <div className="hidden min-w-0 sm:block">
+                  <p className="truncate text-sm font-medium text-[var(--text-primary)]">
+                    Finance + productivity
+                  </p>
+                  <p className="truncate text-xs text-[var(--text-muted)]">
+                    One smarter workspace
+                  </p>
+                </div>
               </Link>
             </motion.div>
           </div>
@@ -167,30 +182,33 @@ const Navbar = ({ theme = "dark", setTheme = () => {} }) => {
                   ? "Switch to light mode"
                   : "Switch to dark mode"
               }
-              className="inline-flex items-center gap-2 rounded-2xl border border-[var(--border-soft)] bg-[var(--panel-1)] px-2.5 py-2.5 text-sm font-medium text-[var(--text-primary)] shadow-[var(--shadow-soft)] transition hover:bg-[var(--panel-2)] sm:px-3"
+              className="inline-flex items-center gap-2 rounded-2xl border border-[var(--border-soft)] bg-[var(--panel-1)] px-3 py-2.5 text-sm font-medium text-[var(--text-primary)] shadow-[var(--shadow-soft)] transition hover:bg-[var(--panel-2)]"
             >
-              <AnimatePresence mode="wait" initial={false}>
-                <motion.span
-                  key={theme}
-                  initial={{ opacity: 0, rotate: -12, scale: 0.92 }}
-                  animate={{ opacity: 1, rotate: 0, scale: 1 }}
-                  exit={{ opacity: 0, rotate: 12, scale: 0.92 }}
-                  transition={{ duration: 0.2 }}
-                  className="inline-flex items-center gap-2"
-                >
-                  {theme === "dark" ? (
-                    <>
-                      <Sun className="h-4 w-4" />
-                      <span className="hidden sm:inline">Light</span>
-                    </>
-                  ) : (
-                    <>
-                      <Moon className="h-4 w-4" />
-                      <span className="hidden sm:inline">Dark</span>
-                    </>
-                  )}
-                </motion.span>
-              </AnimatePresence>
+              {theme === "dark" ? (
+                <Sun className="h-4 w-4" />
+              ) : (
+                <Moon className="h-4 w-4" />
+              )}
+              <span className="hidden sm:inline">
+                {theme === "dark" ? "Light" : "Dark"}
+              </span>
+            </motion.button>
+
+            <motion.button
+              whileHover={{ y: -2, scale: 1.02 }}
+              whileTap={{ scale: 0.97 }}
+              type="button"
+              onClick={() => navigate("/notifications")}
+              className="relative inline-flex items-center gap-2 rounded-2xl border border-[var(--border-soft)] bg-[var(--panel-1)] px-3 py-2.5 text-sm font-medium text-[var(--text-primary)] shadow-[var(--shadow-soft)] transition hover:bg-[var(--panel-2)]"
+            >
+              <Bell className="h-4 w-4" />
+              <span className="hidden xl:inline">Alerts</span>
+
+              {notificationCount > 0 ? (
+                <span className="absolute -right-1.5 -top-1.5 inline-flex min-w-[22px] items-center justify-center rounded-full border border-white/15 bg-[var(--danger-bg)] px-1.5 py-1 text-[10px] font-bold leading-none text-[var(--danger-text)] shadow-[var(--shadow-soft)]">
+                  {badgeLabel}
+                </span>
+              ) : null}
             </motion.button>
 
             <motion.button
@@ -198,39 +216,11 @@ const Navbar = ({ theme = "dark", setTheme = () => {} }) => {
               whileTap={{ scale: 0.97 }}
               type="button"
               onClick={handleLogout}
-              aria-label="Logout"
-              className="inline-flex items-center gap-2 rounded-2xl border border-[var(--danger-border)] bg-[var(--danger-bg)] px-2.5 py-2.5 text-sm font-medium text-[var(--danger-text)] transition hover:brightness-110 sm:px-3"
+              className="hidden items-center gap-2 rounded-2xl border border-[var(--danger-border)] bg-[var(--danger-bg)] px-3 py-2.5 text-sm font-medium text-[var(--danger-text)] transition hover:brightness-110 md:inline-flex"
             >
               <LogOut className="h-4 w-4" />
-              <span className="hidden sm:inline">Logout</span>
+              Logout
             </motion.button>
-          </div>
-        </div>
-
-        <div className="border-t border-[var(--border-soft)] lg:hidden">
-          <div className="flex w-full gap-2 overflow-x-auto px-3 py-3 sm:px-4 md:px-5 xl:px-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {navItems.map((item, index) => {
-              const Icon = item.icon;
-
-              return (
-                <motion.div
-                  key={item.path}
-                  initial={{ opacity: 0, x: 12 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{
-                    duration: 0.26,
-                    delay: 0.05 + index * 0.05,
-                    ease: "easeOut",
-                  }}
-                  whileHover={{ y: -2 }}
-                >
-                  <NavLink to={item.path} className={mobileNavLinkClasses}>
-                    <Icon className="h-4 w-4" />
-                    {item.name}
-                  </NavLink>
-                </motion.div>
-              );
-            })}
           </div>
         </div>
       </motion.header>
@@ -238,101 +228,82 @@ const Navbar = ({ theme = "dark", setTheme = () => {} }) => {
       <AnimatePresence>
         {sidebarOpen && (
           <>
-            <motion.div
+            <motion.button
+              type="button"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.22, ease: "easeOut" }}
-              className="fixed inset-0 z-[60] bg-black/45 backdrop-blur-[2px]"
               onClick={closeSidebar}
-              aria-hidden="true"
+              aria-label="Close sidebar overlay"
+              className="fixed inset-0 z-[70] bg-black/55 backdrop-blur-sm"
             />
 
             <motion.aside
-              initial={{ x: "-100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "-100%" }}
-              transition={{ duration: 0.28, ease: "easeOut" }}
-              className="fixed left-0 top-0 z-[70] flex h-screen w-[320px] max-w-[90vw] flex-col border-r border-[var(--border-soft)] bg-[var(--sidebar-bg)] shadow-[var(--shadow-sidebar)]"
-              aria-hidden={!sidebarOpen}
+              initial={{ x: -420, opacity: 0.8 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: -420, opacity: 0.8 }}
+              transition={{ type: "spring", stiffness: 250, damping: 28 }}
+              className="fixed inset-y-0 left-0 z-[80] flex w-full max-w-[340px] flex-col border-r border-[var(--border-soft)] bg-[var(--sidebar-bg)] shadow-[var(--shadow-sidebar)]"
             >
-              <div className="flex items-center justify-between border-b border-[var(--border-soft)] px-4 py-4 sm:px-5">
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.28, delay: 0.08 }}
-                  className="min-w-0"
+              <div className="flex items-center justify-between border-b border-[var(--border-soft)] px-4 py-4">
+                <Link
+                  to="/dashboard"
+                  onClick={closeSidebar}
+                  className="flex min-w-0 items-center gap-3"
                 >
-                  <h2 className="text-lg font-semibold text-[var(--text-primary)]">
-                    More Options
-                  </h2>
-                  <p className="truncate text-xs text-[var(--text-muted)]">
-                    Settings and future features
-                  </p>
-                </motion.div>
+                  <div className="rounded-2xl border border-[var(--border-soft)] bg-[var(--brand-bg)] px-3.5 py-2.5 text-sm font-semibold text-[var(--text-primary)] shadow-[var(--shadow-soft)]">
+                    TrackIt
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-[var(--text-primary)]">
+                      Smart workspace
+                    </p>
+                    <p className="truncate text-xs text-[var(--text-muted)]">
+                      Budget, tasks, analytics
+                    </p>
+                  </div>
+                </Link>
 
                 <motion.button
-                  whileHover={{ rotate: 90, scale: 1.03 }}
+                  whileHover={{ rotate: 90, scale: 1.04 }}
                   whileTap={{ scale: 0.96 }}
                   type="button"
                   onClick={closeSidebar}
                   aria-label="Close sidebar"
-                  className="rounded-2xl border border-[var(--border-soft)] bg-[var(--panel-1)] p-2 text-[var(--text-secondary)] transition hover:bg-[var(--panel-2)] hover:text-[var(--text-primary)]"
+                  className="rounded-2xl border border-[var(--border-soft)] bg-[var(--panel-1)] p-2.5 text-[var(--text-secondary)] shadow-[var(--shadow-soft)] transition hover:text-[var(--text-primary)]"
                 >
                   <X className="h-5 w-5" />
                 </motion.button>
               </div>
 
-              <div className="flex-1 overflow-y-auto px-4 py-4">
+              <div className="flex-1 overflow-y-auto p-4">
                 <motion.div
-                  initial={{ opacity: 0, y: 16 }}
+                  initial={{ opacity: 0, y: 14 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.28, delay: 0.1 }}
-                  className="rounded-3xl border border-[var(--border-soft)] bg-[var(--panel-1)] p-4 shadow-[var(--shadow-soft)]"
+                  transition={{ duration: 0.24 }}
+                  className="theme-surface mb-5 rounded-[24px] p-4"
                 >
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--accent)]">
-                    Appearance
+                  <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-[var(--border-soft)] bg-[var(--panel-3)] px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--accent)]">
+                    <Sparkles className="h-3.5 w-3.5" />
+                    Quick access
+                  </div>
+                  <h3 className="text-base font-semibold text-[var(--text-primary)]">
+                    Move faster through TrackIt
+                  </h3>
+                  <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
+                    Switch pages, update your preferences, and stay on top of
+                    your alerts from one place.
                   </p>
-
-                  <motion.button
-                    whileHover={{ y: -2 }}
-                    whileTap={{ scale: 0.98 }}
-                    type="button"
-                    onClick={toggleTheme}
-                    className="mt-4 flex w-full items-center gap-3 rounded-2xl border border-[var(--border-soft)] bg-[var(--panel-2)] px-4 py-3 text-left text-sm font-medium text-[var(--text-primary)] transition hover:bg-[var(--panel-3)]"
-                  >
-                    <motion.div
-                      whileHover={{ rotate: -8, scale: 1.04 }}
-                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--panel-3)]"
-                    >
-                      {theme === "dark" ? (
-                        <Sun className="h-4 w-4" />
-                      ) : (
-                        <Moon className="h-4 w-4" />
-                      )}
-                    </motion.div>
-
-                    <div className="min-w-0">
-                      <p className="truncate">
-                        {theme === "dark"
-                          ? "Switch to Light Theme"
-                          : "Switch to Dark Theme"}
-                      </p>
-                      <p className="text-xs text-[var(--text-muted)]">
-                        Change app appearance
-                      </p>
-                    </div>
-                  </motion.button>
                 </motion.div>
 
-                <div className="mt-6 lg:hidden">
+                <div>
                   <motion.p
                     initial={{ opacity: 0, y: 12 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.24, delay: 0.14 }}
+                    transition={{ duration: 0.24, delay: 0.08 }}
                     className="mb-3 px-2 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]"
                   >
-                    Quick Navigation
+                    Main Navigation
                   </motion.p>
 
                   <div className="space-y-2">
@@ -346,7 +317,7 @@ const Navbar = ({ theme = "dark", setTheme = () => {} }) => {
                           animate={{ opacity: 1, x: 0 }}
                           transition={{
                             duration: 0.26,
-                            delay: 0.16 + index * 0.05,
+                            delay: 0.1 + index * 0.05,
                             ease: "easeOut",
                           }}
                           whileHover={{ x: 4 }}
@@ -354,24 +325,11 @@ const Navbar = ({ theme = "dark", setTheme = () => {} }) => {
                           <NavLink
                             to={item.path}
                             onClick={closeSidebar}
-                            className={({ isActive }) =>
-                              `flex w-full items-center gap-3 rounded-2xl border px-4 py-3 text-left text-sm font-medium transition ${
-                                isActive
-                                  ? "border-[var(--border-strong)] bg-[var(--nav-active-bg)] text-[var(--text-primary)] shadow-[var(--shadow-soft)]"
-                                  : "border-[var(--border-soft)] bg-[var(--panel-1)] text-[var(--text-primary)] hover:bg-[var(--panel-2)]"
-                              }`
-                            }
+                            className={mobileNavLinkClasses}
                           >
-                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--panel-3)]">
-                              <Icon className="h-4 w-4" />
-                            </div>
-
-                            <div className="min-w-0">
-                              <p className="truncate">{item.name}</p>
-                              <p className="text-xs text-[var(--text-muted)]">
-                                Open {item.name.toLowerCase()}
-                              </p>
-                            </div>
+                            <Icon className="h-4 w-4" />
+                            <span className="flex-1">{item.name}</span>
+                            <ChevronRight className="h-4 w-4 opacity-55" />
                           </NavLink>
                         </motion.div>
                       );
@@ -392,6 +350,7 @@ const Navbar = ({ theme = "dark", setTheme = () => {} }) => {
                   <div className="space-y-2">
                     {extraFeatureItems.map((item, index) => {
                       const Icon = item.icon;
+                      const isNotificationsItem = item.path === "/notifications";
 
                       return (
                         <motion.div
@@ -411,17 +370,31 @@ const Navbar = ({ theme = "dark", setTheme = () => {} }) => {
                               navigate(item.path);
                               closeSidebar();
                             }}
-                            className="flex w-full items-center gap-3 rounded-2xl border border-[var(--border-soft)] bg-[var(--panel-1)] px-4 py-3 text-left text-sm font-medium text-[var(--text-primary)] shadow-[var(--shadow-soft)] transition hover:bg-[var(--panel-2)]"
+                            className="relative flex w-full items-center gap-3 rounded-2xl border border-[var(--border-soft)] bg-[var(--panel-1)] px-4 py-3 text-left text-sm font-medium text-[var(--text-primary)] shadow-[var(--shadow-soft)] transition hover:bg-[var(--panel-2)]"
                           >
                             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--panel-3)]">
                               <Icon className="h-4 w-4" />
                             </div>
-                            <div className="min-w-0">
-                              <p>{item.title}</p>
+                            <div className="min-w-0 flex-1">
+                              <p className="flex items-center gap-2">
+                                <span>{item.title}</span>
+                                {isNotificationsItem && notificationCount > 0 ? (
+                                  <span className="inline-flex min-w-[22px] items-center justify-center rounded-full border border-white/15 bg-[var(--danger-bg)] px-1.5 py-1 text-[10px] font-bold leading-none text-[var(--danger-text)]">
+                                    {badgeLabel}
+                                  </span>
+                                ) : null}
+                              </p>
                               <p className="text-xs text-[var(--text-muted)]">
-                                {item.subtitle}
+                                {isNotificationsItem && notificationCount > 0
+                                  ? `${notificationCount} active alert(s)${
+                                      highPriorityCount > 0
+                                        ? ` · ${highPriorityCount} high priority`
+                                        : ""
+                                    }`
+                                  : item.subtitle}
                               </p>
                             </div>
+                            <ChevronRight className="h-4 w-4 opacity-55" />
                           </button>
                         </motion.div>
                       );
@@ -436,6 +409,39 @@ const Navbar = ({ theme = "dark", setTheme = () => {} }) => {
                 transition={{ duration: 0.24, delay: 0.28 }}
                 className="border-t border-[var(--border-soft)] p-4"
               >
+                <div className="mb-3 grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={toggleTheme}
+                    className="theme-muted-btn inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-medium"
+                  >
+                    {theme === "dark" ? (
+                      <Sun className="h-4 w-4" />
+                    ) : (
+                      <Moon className="h-4 w-4" />
+                    )}
+                    {theme === "dark" ? "Light" : "Dark"}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigate("/notifications");
+                      closeSidebar();
+                    }}
+                    className="relative theme-muted-btn inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-medium"
+                  >
+                    <Bell className="h-4 w-4" />
+                    Alerts
+
+                    {notificationCount > 0 ? (
+                      <span className="absolute -right-1.5 -top-1.5 inline-flex min-w-[22px] items-center justify-center rounded-full border border-white/15 bg-[var(--danger-bg)] px-1.5 py-1 text-[10px] font-bold leading-none text-[var(--danger-text)]">
+                        {badgeLabel}
+                      </span>
+                    ) : null}
+                  </button>
+                </div>
+
                 <motion.button
                   whileHover={{ y: -2, scale: 1.01 }}
                   whileTap={{ scale: 0.98 }}

@@ -9,6 +9,7 @@ import {
   Wallet,
   Save,
   CheckCircle2,
+  AlertTriangle,
 } from "lucide-react";
 import { API_BASE } from "../config/api";
 
@@ -18,6 +19,7 @@ function Salary() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
+  const [formError, setFormError] = useState("");
 
   const API = `${API_BASE}/salary`;
 
@@ -39,24 +41,26 @@ function Salary() {
   }, []);
 
   useEffect(() => {
-    if (!saveMessage) return;
+    if (!saveMessage && !formError) return;
 
     const timer = setTimeout(() => {
       setSaveMessage("");
+      setFormError("");
     }, 2600);
 
     return () => clearTimeout(timer);
-  }, [saveMessage]);
+  }, [saveMessage, formError]);
 
   const handleSaveSalary = async () => {
     try {
       if (!salary || Number(salary) <= 0) {
-        alert("Please enter a valid salary");
+        setFormError("Please enter a valid salary");
         return;
       }
 
       setSaving(true);
       setSaveMessage("");
+      setFormError("");
 
       const res = await axios.post(API, {
         salary: Number(salary),
@@ -67,7 +71,7 @@ function Salary() {
       await fetchLatestSalary();
     } catch (err) {
       console.log("Salary save frontend error:", err);
-      alert(err.response?.data?.message || "Failed to save salary");
+      setFormError(err.response?.data?.message || "Failed to save salary");
     } finally {
       setSaving(false);
     }
@@ -97,34 +101,32 @@ function Salary() {
       value: formatCurrency(salaryAmount),
       subtitle: "Current recorded income",
       icon: IndianRupee,
-      valueClass: "text-[var(--text-primary)]",
-      iconSurface: "bg-[var(--status-neutral-bg)] text-[var(--text-primary)]",
+      valueClass: "text-[var(--color-accent)]",
+      iconSurface: "bg-[var(--status-neutral-bg)] text-[var(--color-accent)]",
     },
     {
       title: "Needs",
       value: formatCurrency(needs),
       subtitle: "50% essential spending",
       icon: Wallet,
-      valueClass: "text-[var(--status-success-text)]",
-      iconSurface:
-        "bg-[var(--status-success-bg)] text-[var(--status-success-text)]",
+      valueClass: "text-[var(--color-needs)]",
+      iconSurface: "bg-[var(--status-neutral-bg)] text-[var(--color-needs)]",
     },
     {
       title: "Wants",
       value: formatCurrency(wants),
       subtitle: "30% lifestyle spending",
       icon: TrendingUp,
-      valueClass: "text-[var(--status-warm-text)]",
-      iconSurface:
-        "bg-[var(--status-warm-bg)] text-[var(--status-warm-text)]",
+      valueClass: "text-[var(--color-wants)]",
+      iconSurface: "bg-[var(--status-warm-bg)] text-[var(--color-wants)]",
     },
     {
       title: "Savings",
       value: formatCurrency(savings),
       subtitle: "20% future reserve",
       icon: PiggyBank,
-      valueClass: "text-[var(--text-primary)]",
-      iconSurface: "bg-[var(--status-neutral-bg)] text-[var(--text-primary)]",
+      valueClass: "text-[var(--color-savings)]",
+      iconSurface: "bg-[var(--status-success-bg)] text-[var(--color-savings)]",
     },
   ];
 
@@ -136,11 +138,9 @@ function Salary() {
       description:
         "Recommended for rent, bills, transport, groceries, and other fixed needs.",
       icon: Wallet,
-      iconSurface:
-        "bg-[var(--status-success-bg)] text-[var(--status-success-text)]",
-      valueClass: "text-[var(--status-success-text)]",
-      barClass:
-        "bg-[linear-gradient(90deg,var(--accent),var(--accent-2))]",
+      iconSurface: "bg-[var(--status-neutral-bg)] text-[var(--color-needs)]",
+      valueClass: "text-[var(--color-needs)]",
+      barClass: "bg-[linear-gradient(90deg,var(--color-needs),var(--accent-2))]",
       width: "50%",
     },
     {
@@ -150,11 +150,9 @@ function Salary() {
       description:
         "Useful for entertainment, shopping, dining out, and non-essential choices.",
       icon: TrendingUp,
-      iconSurface:
-        "bg-[var(--status-warm-bg)] text-[var(--status-warm-text)]",
-      valueClass: "text-[var(--status-warm-text)]",
-      barClass:
-        "bg-[linear-gradient(90deg,var(--status-warm-text),var(--accent-warm))]",
+      iconSurface: "bg-[var(--status-warm-bg)] text-[var(--color-wants)]",
+      valueClass: "text-[var(--color-wants)]",
+      barClass: "bg-[linear-gradient(90deg,var(--color-wants),var(--accent-warm))]",
       width: "30%",
     },
     {
@@ -164,10 +162,9 @@ function Salary() {
       description:
         "Best reserved for emergency funds, investing, and long-term financial goals.",
       icon: PiggyBank,
-      iconSurface: "bg-[var(--status-neutral-bg)] text-[var(--text-primary)]",
-      valueClass: "text-[var(--text-primary)]",
-      barClass:
-        "bg-[linear-gradient(90deg,var(--text-primary),var(--text-secondary))]",
+      iconSurface: "bg-[var(--status-success-bg)] text-[var(--color-savings)]",
+      valueClass: "text-[var(--color-savings)]",
+      barClass: "bg-[linear-gradient(90deg,var(--color-savings),var(--status-success-text))]",
       width: "20%",
     },
   ];
@@ -255,6 +252,23 @@ function Salary() {
               {budgetMessage}
             </p>
 
+            {(formError || saveMessage) && (
+              <div
+                className={`mb-4 flex items-start gap-2 rounded-2xl border px-4 py-3 text-sm ${
+                  formError
+                    ? "border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger-text)]"
+                    : "border-[var(--border-soft)] bg-[var(--status-success-bg)] text-[var(--status-success-text)]"
+                }`}
+              >
+                {formError ? (
+                  <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+                ) : (
+                  <CheckCircle2 size={16} className="mt-0.5 shrink-0" />
+                )}
+                <span>{formError || saveMessage}</span>
+              </div>
+            )}
+
             <div className="flex flex-col gap-3">
               <motion.input
                 whileFocus={{ scale: 1.01 }}
@@ -286,21 +300,6 @@ function Salary() {
                 {saving ? "Saving..." : "Save Salary"}
               </motion.button>
             </div>
-
-            <AnimatePresence>
-              {saveMessage && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10, scale: 0.98 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -6, scale: 0.98 }}
-                  transition={{ duration: 0.25 }}
-                  className="mt-4 inline-flex items-center gap-2 rounded-2xl border border-[var(--border-soft)] bg-[var(--status-success-bg)] px-3 py-2 text-sm text-[var(--status-success-text)]"
-                >
-                  <CheckCircle2 size={16} />
-                  <span>{saveMessage}</span>
-                </motion.div>
-              )}
-            </AnimatePresence>
           </div>
         </motion.div>
 
@@ -309,7 +308,7 @@ function Salary() {
           className="theme-surface-2 rounded-[22px] p-4 sm:rounded-[24px] sm:p-5"
         >
           <div className="mb-5 flex items-start gap-3">
-            <div className="rounded-2xl bg-[var(--status-neutral-bg)] p-2.5 text-[var(--text-primary)]">
+            <div className="rounded-2xl bg-[var(--status-neutral-bg)] p-2.5 text-[var(--color-accent)]">
               <Target size={18} />
             </div>
             <div className="min-w-0">
@@ -327,17 +326,17 @@ function Salary() {
               {
                 label: "50% Needs",
                 text: "Essentials, bills, fixed costs",
-                valueClass: "text-[var(--status-success-text)]",
+                valueClass: "text-[var(--color-needs)]",
               },
               {
                 label: "30% Wants",
                 text: "Lifestyle, fun, flexible spending",
-                valueClass: "text-[var(--status-warm-text)]",
+                valueClass: "text-[var(--color-wants)]",
               },
               {
                 label: "20% Savings",
                 text: "Emergency fund and future goals",
-                valueClass: "text-[var(--text-primary)]",
+                valueClass: "text-[var(--color-savings)]",
               },
             ].map((item, index) => (
               <motion.div

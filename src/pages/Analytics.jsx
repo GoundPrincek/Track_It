@@ -141,18 +141,18 @@ function Analytics() {
       value: formatCurrency(analytics.totalExpenses),
       subtitle: "Combined saved spending",
       icon: Wallet,
-      valueClass: "text-[var(--text-primary)]",
+      valueClass: "text-[var(--color-accent)]",
       iconSurface:
-        "bg-[var(--status-neutral-bg)] text-[var(--text-primary)]",
+        "bg-[var(--status-neutral-bg)] text-[var(--color-accent)]",
     },
     {
       title: "Savings Recorded",
       value: formatCurrency(analytics.savingsSpent),
       subtitle: "Saved under saving category",
       icon: PiggyBank,
-      valueClass: "text-[var(--status-success-text)]",
+      valueClass: "text-[var(--color-savings)]",
       iconSurface:
-        "bg-[var(--status-success-bg)] text-[var(--status-success-text)]",
+        "bg-[var(--status-success-bg)] text-[var(--color-savings)]",
     },
     {
       title: "Completion Rate",
@@ -179,33 +179,37 @@ function Analytics() {
       label: "Needs",
       spent: analytics.needsSpent,
       target: Number(salaryData?.needs || 0),
-      textClass: "text-[var(--status-success-text)]",
+      textClass: "text-[var(--color-needs)]",
+      barClass: "bg-[linear-gradient(90deg,var(--color-needs),var(--accent-2))]",
     },
     {
       label: "Wants",
       spent: analytics.wantsSpent,
       target: Number(salaryData?.wants || 0),
-      textClass: "text-[var(--status-warm-text)]",
+      textClass: "text-[var(--color-wants)]",
+      barClass: "bg-[linear-gradient(90deg,var(--color-wants),var(--accent-warm))]",
     },
     {
       label: "Savings",
       spent: analytics.savingsSpent,
       target: Number(salaryData?.savings || 0),
-      textClass: "text-[var(--text-primary)]",
+      textClass: "text-[var(--color-savings)]",
+      barClass:
+        "bg-[linear-gradient(90deg,var(--color-savings),var(--status-success-text))]",
     },
   ];
 
   const expenseCategoryChartData = [
-    { name: "Needs", value: analytics.needsSpent },
-    { name: "Wants", value: analytics.wantsSpent },
-    { name: "Savings", value: analytics.savingsSpent },
-    { name: "Other", value: analytics.uncategorizedSpent },
+    { name: "Needs", value: analytics.needsSpent, color: "var(--color-needs)" },
+    { name: "Wants", value: analytics.wantsSpent, color: "var(--color-wants)" },
+    { name: "Savings", value: analytics.savingsSpent, color: "var(--color-savings)" },
+    { name: "Other", value: analytics.uncategorizedSpent, color: "var(--text-muted)" },
   ].filter((item) => item.value > 0);
 
   const goalProgressChartData = [
-    { name: "Completed", value: analytics.completedGoals },
-    { name: "In Progress", value: analytics.inProgressGoals },
-    { name: "Pending", value: analytics.pendingGoals },
+    { name: "Completed", value: analytics.completedGoals, color: "var(--status-success-text)" },
+    { name: "In Progress", value: analytics.inProgressGoals, color: "var(--status-warm-text)" },
+    { name: "Pending", value: analytics.pendingGoals, color: "var(--color-accent)" },
   ];
 
   const budgetComparisonChartData = [
@@ -236,7 +240,7 @@ function Analytics() {
           "Save your salary to unlock stronger allocation comparison and budget insights.",
         icon: Wallet,
         iconSurface:
-          "bg-[var(--status-neutral-bg)] text-[var(--text-primary)]",
+          "bg-[var(--status-neutral-bg)] text-[var(--color-accent)]",
       });
     }
 
@@ -262,7 +266,7 @@ function Analytics() {
         )}.`,
         icon: PiggyBank,
         iconSurface:
-          "bg-[var(--status-success-bg)] text-[var(--status-success-text)]",
+          "bg-[var(--status-success-bg)] text-[var(--color-savings)]",
       });
     }
 
@@ -293,7 +297,7 @@ function Analytics() {
           "Add or import expenses to unlock category and spending trend insights.",
         icon: Receipt,
         iconSurface:
-          "bg-[var(--status-neutral-bg)] text-[var(--text-primary)]",
+          "bg-[var(--status-neutral-bg)] text-[var(--color-accent)]",
       });
     }
 
@@ -422,7 +426,7 @@ function Analytics() {
       >
         <div className="theme-surface-2 rounded-[22px] p-4 sm:rounded-[24px] sm:p-5">
           <div className="mb-5 flex items-start gap-3">
-            <div className="rounded-2xl bg-[var(--status-neutral-bg)] p-2.5 text-[var(--text-primary)]">
+            <div className="rounded-2xl bg-[var(--status-neutral-bg)] p-2.5 text-[var(--color-accent)]">
               <BarChart3 size={18} />
             </div>
             <div className="min-w-0">
@@ -455,16 +459,9 @@ function Analytics() {
                     outerRadius={110}
                     paddingAngle={3}
                   >
-                    {expenseCategoryChartData.map((entry, index) => {
-                      const fills = [
-                        "var(--status-success-text)",
-                        "var(--status-warm-text)",
-                        "var(--accent)",
-                        "var(--text-muted)",
-                      ];
-
-                      return <Cell key={entry.name} fill={fills[index % fills.length]} />;
-                    })}
+                    {expenseCategoryChartData.map((entry) => (
+                      <Cell key={entry.name} fill={entry.color} />
+                    ))}
                   </Pie>
                   <Tooltip
                     formatter={(value) => formatCurrency(value)}
@@ -517,15 +514,9 @@ function Analytics() {
                     outerRadius={110}
                     paddingAngle={3}
                   >
-                    {goalProgressChartData.map((entry, index) => {
-                      const fills = [
-                        "var(--status-success-text)",
-                        "var(--status-warm-text)",
-                        "var(--text-muted)",
-                      ];
-
-                      return <Cell key={entry.name} fill={fills[index % fills.length]} />;
-                    })}
+                    {goalProgressChartData.map((entry) => (
+                      <Cell key={entry.name} fill={entry.color} />
+                    ))}
                   </Pie>
                   <Tooltip
                     formatter={(value) => value}
@@ -552,7 +543,7 @@ function Analytics() {
       >
         <div className="theme-surface-2 rounded-[22px] p-4 sm:rounded-[24px] sm:p-5">
           <div className="mb-5 flex items-start gap-3">
-            <div className="rounded-2xl bg-[var(--status-neutral-bg)] p-2.5 text-[var(--text-primary)]">
+            <div className="rounded-2xl bg-[var(--status-neutral-bg)] p-2.5 text-[var(--color-accent)]">
               <Target size={18} />
             </div>
             <div className="min-w-0">
@@ -590,8 +581,8 @@ function Analytics() {
                     }}
                   />
                   <Legend />
-                  <Bar dataKey="Allocation" radius={[10, 10, 0, 0]} fill="var(--accent)" />
-                  <Bar dataKey="Spent" radius={[10, 10, 0, 0]} fill="var(--status-warm-text)" />
+                  <Bar dataKey="Allocation" radius={[10, 10, 0, 0]} fill="var(--color-accent)" />
+                  <Bar dataKey="Spent" radius={[10, 10, 0, 0]} fill="var(--color-wants)" />
                 </BarChart>
               </ResponsiveContainer>
             )}
@@ -665,7 +656,7 @@ function Analytics() {
       >
         <div className="theme-surface-2 rounded-[22px] p-4 sm:rounded-[24px] sm:p-5">
           <div className="mb-5 flex items-start gap-3">
-            <div className="rounded-2xl bg-[var(--status-neutral-bg)] p-2.5 text-[var(--text-primary)]">
+            <div className="rounded-2xl bg-[var(--status-neutral-bg)] p-2.5 text-[var(--color-accent)]">
               <BarChart3 size={18} />
             </div>
             <div className="min-w-0">
@@ -710,7 +701,7 @@ function Analytics() {
                       initial={{ width: 0 }}
                       animate={{ width: `${percent}%` }}
                       transition={{ duration: 0.7, delay: 0.28 + index * 0.08 }}
-                      className="h-2.5 rounded-full bg-[linear-gradient(90deg,var(--accent),var(--accent-2))]"
+                      className={`h-2.5 rounded-full ${item.barClass}`}
                     />
                   </div>
 
@@ -758,7 +749,7 @@ function Analytics() {
                 title: "Pending Goals",
                 value: analytics.pendingGoals,
                 subtitle: "Not started yet",
-                valueClass: "text-[var(--text-primary)]",
+                valueClass: "text-[var(--color-accent)]",
               },
               {
                 title: "Average Progress",
