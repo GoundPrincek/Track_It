@@ -11,7 +11,7 @@ import {
   CheckCircle2,
   AlertTriangle,
 } from "lucide-react";
-import { API_BASE } from "../config/api";
+import { API_BASE, clearStoredAuth } from "../config/api";
 
 function Login() {
   const navigate = useNavigate();
@@ -41,7 +41,13 @@ function Login() {
 
   const handleSubmit = async () => {
     try {
-      if (!form.email.trim() || !form.password.trim()) {
+      const payload = {
+        name: form.name.trim(),
+        email: form.email.trim(),
+        password: form.password.trim(),
+      };
+
+      if (!payload.email || !payload.password) {
         setFormMessage({
           type: "error",
           text: "Please fill in email and password",
@@ -49,7 +55,7 @@ function Login() {
         return;
       }
 
-      if (isRegister && !form.name.trim()) {
+      if (isRegister && !payload.name) {
         setFormMessage({
           type: "error",
           text: "Please enter your name",
@@ -62,9 +68,9 @@ function Login() {
 
       if (isRegister) {
         const res = await axios.post(`${API_BASE}/auth/register`, {
-          name: form.name,
-          email: form.email,
-          password: form.password,
+          name: payload.name,
+          email: payload.email,
+          password: payload.password,
         });
 
         setFormMessage({
@@ -73,9 +79,11 @@ function Login() {
         });
         setIsRegister(false);
       } else {
+        clearStoredAuth();
+
         const res = await axios.post(`${API_BASE}/auth/login`, {
-          email: form.email,
-          password: form.password,
+          email: payload.email,
+          password: payload.password,
         });
 
         localStorage.setItem("user", JSON.stringify(res.data.user));
@@ -90,6 +98,10 @@ function Login() {
         password: "",
       });
     } catch (err) {
+      if (!isRegister) {
+        clearStoredAuth();
+      }
+
       setFormMessage({
         type: "error",
         text: err.response?.data?.message || "Something went wrong",

@@ -4,6 +4,15 @@ const DEV_API_BASE = "http://127.0.0.1:5000/api";
 
 export const API_BASE = import.meta.env.VITE_API_BASE || DEV_API_BASE;
 
+export const clearStoredAuth = () => {
+  try {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+  } catch (err) {
+    console.log("Failed to clear stored auth:", err);
+  }
+};
+
 const getStoredToken = () => {
   try {
     return localStorage.getItem("token") || "";
@@ -25,4 +34,23 @@ axios.interceptors.request.use(
     return config;
   },
   (error) => Promise.reject(error)
+);
+
+axios.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const status = error?.response?.status;
+    const requestUrl = String(error?.config?.url || "");
+    const isAuthRequest = requestUrl.includes("/auth/login") || requestUrl.includes("/auth/register");
+
+    if (status === 401 && !isAuthRequest) {
+      clearStoredAuth();
+
+      if (typeof window !== "undefined" && window.location.pathname !== "/login") {
+        window.location.replace("/login");
+      }
+    }
+
+    return Promise.reject(error);
+  }
 );
