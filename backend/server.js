@@ -16,11 +16,34 @@ const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO_URI;
 const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:5173";
 
+const normalizeOrigin = (value) => String(value || "").trim().replace(/\/+$/, "");
+
+const normalizedClientUrl = normalizeOrigin(CLIENT_URL);
+
 const allowedOrigins = [
   "http://localhost:5173",
   "http://127.0.0.1:5173",
-  CLIENT_URL,
+  normalizedClientUrl,
 ].filter(Boolean);
+
+const isAllowedVercelPreviewOrigin = (origin) => {
+  const normalizedOrigin = normalizeOrigin(origin);
+
+  return /^https:\/\/trackit2(?:-[a-z0-9-]+)?-goundprinceks-projects\.vercel\.app$/i.test(
+    normalizedOrigin
+  );
+};
+
+const isAllowedOrigin = (origin) => {
+  if (!origin) return true;
+
+  const normalizedOrigin = normalizeOrigin(origin);
+
+  return (
+    allowedOrigins.includes(normalizedOrigin) ||
+    isAllowedVercelPreviewOrigin(normalizedOrigin)
+  );
+};
 
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -51,7 +74,7 @@ app.use(
 app.use(
   cors({
     origin(origin, callback) {
-      if (!origin || allowedOrigins.includes(origin)) {
+      if (isAllowedOrigin(origin)) {
         return callback(null, true);
       }
 
