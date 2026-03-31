@@ -79,9 +79,7 @@ function Login() {
         });
 
         localStorage.setItem("user", JSON.stringify(res.data.user));
-        if (res.data.token) {
-          localStorage.setItem("token", res.data.token);
-        }
+        localStorage.setItem("token", res.data.token);
 
         navigate("/dashboard");
       }

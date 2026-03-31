@@ -1,28 +1,9 @@
 const express = require("express");
 const router = express.Router();
-const mongoose = require("mongoose");
 const Todo = require("../models/Todo");
+const protect = require("../middleware/authMiddleware");
 
-const getUserId = (req) => {
-  const headerUserId = req.headers["x-user-id"];
-  return String(headerUserId || "").trim();
-};
-
-const ensureUserId = (req, res) => {
-  const userId = getUserId(req);
-
-  if (!userId) {
-    res.status(401).json({ message: "User not found. Please login again." });
-    return null;
-  }
-
-  if (!mongoose.Types.ObjectId.isValid(userId)) {
-    res.status(401).json({ message: "Invalid user session. Please login again." });
-    return null;
-  }
-
-  return userId;
-};
+router.use(protect);
 
 const getSmartStatus = (progress) => {
   const safeProgress = Math.max(0, Math.min(100, Number(progress) || 0));
@@ -41,8 +22,7 @@ const getSmartStatus = (progress) => {
 // GET ALL TODOS
 router.get("/", async (req, res) => {
   try {
-    const userId = ensureUserId(req, res);
-    if (!userId) return;
+    const userId = req.user.userId;
 
     const todos = await Todo.find({ user: userId }).sort({ createdAt: -1 });
     res.json(todos);
@@ -55,8 +35,7 @@ router.get("/", async (req, res) => {
 // CREATE TODO
 router.post("/", async (req, res) => {
   try {
-    const userId = ensureUserId(req, res);
-    if (!userId) return;
+    const userId = req.user.userId;
 
     const {
       title,
@@ -103,8 +82,7 @@ router.post("/", async (req, res) => {
 // UPDATE TODO
 router.put("/:id", async (req, res) => {
   try {
-    const userId = ensureUserId(req, res);
-    if (!userId) return;
+    const userId = req.user.userId;
 
     const {
       title,
@@ -157,8 +135,7 @@ router.put("/:id", async (req, res) => {
 // START TODO SESSION
 router.patch("/:id/start-session", async (req, res) => {
   try {
-    const userId = ensureUserId(req, res);
-    if (!userId) return;
+    const userId = req.user.userId;
 
     const todo = await Todo.findOne({ _id: req.params.id, user: userId });
 
@@ -191,8 +168,7 @@ router.patch("/:id/start-session", async (req, res) => {
 // COMPLETE TODO
 router.patch("/:id/complete", async (req, res) => {
   try {
-    const userId = ensureUserId(req, res);
-    if (!userId) return;
+    const userId = req.user.userId;
 
     const updatedTodo = await Todo.findOneAndUpdate(
       { _id: req.params.id, user: userId },
@@ -219,8 +195,7 @@ router.patch("/:id/complete", async (req, res) => {
 // SAVE REVIEW
 router.patch("/:id/review", async (req, res) => {
   try {
-    const userId = ensureUserId(req, res);
-    if (!userId) return;
+    const userId = req.user.userId;
 
     const { review, productivityScore, focusLevel, challenges, improvementPlan } =
       req.body;
@@ -251,8 +226,7 @@ router.patch("/:id/review", async (req, res) => {
 // DELETE TODO
 router.delete("/:id", async (req, res) => {
   try {
-    const userId = ensureUserId(req, res);
-    if (!userId) return;
+    const userId = req.user.userId;
 
     const deletedTodo = await Todo.findOneAndDelete({
       _id: req.params.id,
