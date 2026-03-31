@@ -1,56 +1,443 @@
 const express = require("express");
 const router = express.Router();
-const mongoose = require("mongoose");
 const Expense = require("../models/Expense");
 const multer = require("multer");
 const csvParser = require("csv-parser");
 const pdfParse = require("pdf-parse");
 const { Readable } = require("stream");
+const rateLimit = require("express-rate-limit");
+const protect = require("../middleware/authMiddleware");
+
+router.use(protect);
+
+const importLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    code: "IMPORT_RATE_LIMIT",
+    message: "Too many import attempts. Please try again later.",
+  },
+});
 
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 10 * 1024 * 1024,
+    fileSize: 5 * 1024 * 1024,
+    files: 1,
   },
 });
 
 const CATEGORY_RULES = {
+  saving: [
+    "sip",
+    "systematic investment plan",
+    "mutual fund",
+    "mutualfund",
+    "mf",
+    "investment",
+    "invest",
+    "stock",
+    "stocks",
+    "equity",
+    "etf",
+    "nps",
+    "ppf",
+    "epf",
+    "vpf",
+    "fd",
+    "fixed deposit",
+    "rd",
+    "recurring deposit",
+    "bond",
+    "bonds",
+    "debenture",
+    "gold bond",
+    "sovereign gold bond",
+    "ulip",
+    "retirement",
+    "retirement fund",
+    "pension",
+    "portfolio",
+    "wealth",
+    "savings",
+    "saving",
+    "save",
+    "deposit to savings",
+    "transfer to savings",
+    "savings transfer",
+    "sweep to savings",
+    "sweep transfer",
+    "pigmy",
+    "emergency fund",
+    "provident fund",
+    "public provident fund",
+    "rec deposit",
+    "wealth creation",
+    "goal based saving",
+    "smallcase",
+    "groww",
+    "zerodha",
+    "upstox",
+    "angel one",
+    "angel broking",
+    "coin",
+    "kite",
+    "icici direct",
+    "hdfc securities",
+    "motilal oswal",
+    "paytm money",
+    "kuvera",
+    "cams",
+    "kfintech",
+    "sbi mutual",
+    "hdfc mutual",
+    "axis mutual",
+    "icici prudential",
+    "kotak mutual",
+    "nippon india mutual",
+    "mirae asset",
+    "franklin templeton",
+    "uti mutual",
+    "aditya birla sun life",
+    "lic premium",
+    "lic policy",
+    "term insurance",
+    "retirement corpus",
+    "future fund",
+  ],
+
+  need: [
+    "rent",
+    "house rent",
+    "flat rent",
+    "room rent",
+    "pg rent",
+    "hostel rent",
+    "maintenance",
+    "society maintenance",
+    "building maintenance",
+    "electricity",
+    "power bill",
+    "electric bill",
+    "water bill",
+    "water charge",
+    "water charges",
+    "gas bill",
+    "lpg",
+    "indane",
+    "bharat gas",
+    "hp gas",
+    "pipeline gas",
+    "cylinder",
+    "utility",
+    "utilities",
+    "broadband",
+    "internet",
+    "wifi",
+    "wifi bill",
+    "airtel fiber",
+    "jio fiber",
+    "act fibernet",
+    "hathway",
+    "bsnl broadband",
+    "phone bill",
+    "mobile bill",
+    "mobile recharge",
+    "recharge",
+    "postpaid",
+    "prepaid",
+    "jio recharge",
+    "airtel recharge",
+    "vi recharge",
+    "vodafone recharge",
+    "idea recharge",
+    "bsnl recharge",
+    "grocery",
+    "groceries",
+    "grocery store",
+    "supermarket",
+    "mart",
+    "dmart",
+    "d mart",
+    "reliance fresh",
+    "big bazaar",
+    "star bazaar",
+    "spencer",
+    "more supermarket",
+    "nature basket",
+    "kirana",
+    "ration",
+    "milk",
+    "vegetable",
+    "vegetables",
+    "fruit",
+    "fruits",
+    "eggs",
+    "rice",
+    "atta",
+    "dal",
+    "daily needs",
+    "essential",
+    "essentials",
+    "household",
+    "cleaning supplies",
+    "detergent",
+    "toiletries",
+    "sanitary",
+    "napkin",
+    "soap",
+    "shampoo",
+    "medical",
+    "medicine",
+    "medicines",
+    "pharmacy",
+    "chemist",
+    "apollo pharmacy",
+    "netmeds",
+    "1mg",
+    "tata 1mg",
+    "medplus",
+    "hospital",
+    "clinic",
+    "doctor",
+    "diagnostic",
+    "diagnostics",
+    "lab test",
+    "pathology",
+    "scan center",
+    "xray",
+    "mri",
+    "blood test",
+    "healthcare",
+    "ambulance",
+    "health insurance",
+    "mediclaim",
+    "insurance premium",
+    "fuel",
+    "petrol",
+    "diesel",
+    "cng",
+    "gas station",
+    "hp petrol",
+    "bharat petroleum",
+    "bpcl",
+    "indian oil",
+    "ioc",
+    "nayara",
+    "transport",
+    "public transport",
+    "metro",
+    "bus",
+    "train",
+    "railway",
+    "irctc",
+    "local train",
+    "commute",
+    "office commute",
+    "cab to office",
+    "school transport",
+    "auto fare",
+    "parking",
+    "fastag",
+    "fast tag",
+    "toll",
+    "school fee",
+    "tuition fee",
+    "college fee",
+    "exam fee",
+    "education fee",
+    "books",
+    "bookstore",
+    "textbook",
+    "notebook",
+    "stationery",
+    "uniform",
+    "child fee",
+    "daycare",
+    "child care",
+    "baby food",
+    "diapers",
+    "nanny",
+    "loan emi",
+    "emi",
+    "home loan",
+    "education loan",
+    "personal loan emi",
+    "car loan emi",
+    "bill payment",
+    "credit card bill",
+    "property tax",
+    "income tax",
+    "municipal tax",
+    "government fee",
+    "passport fee",
+    "aadhaar",
+    "pan card fee",
+    "registration fee",
+    "repair",
+    "home repair",
+    "appliance repair",
+    "plumber",
+    "electrician",
+    "car service",
+    "bike service",
+    "vehicle service",
+    "tyre",
+    "battery",
+    "subscription essential",
+    "internet essential",
+  ],
+
   want: [
     "zomato",
     "swiggy",
+    "uber eats",
+    "eatclub",
+    "food delivery",
     "restaurant",
+    "restro",
     "cafe",
+    "coffee",
+    "tea shop",
+    "bakery",
+    "dessert",
+    "ice cream",
+    "dominos",
+    "pizza hut",
+    "burger king",
+    "mcdonald",
+    "kfc",
+    "subway",
+    "faasos",
+    "behrouz",
+    "barbeque nation",
+    "starbucks",
+    "barista",
+    "chai point",
+    "third wave coffee",
     "movie",
+    "cinema",
+    "pvr",
+    "inox",
+    "bookmyshow",
     "netflix",
-    "amazon",
-    "myntra",
+    "prime video",
+    "amazon prime",
+    "disney",
+    "hotstar",
+    "spotify",
+    "youtube premium",
+    "apple music",
+    "gaana",
+    "jiosaavn",
+    "sonyliv",
+    "zee5",
+    "subscription",
+    "ott",
+    "gaming",
+    "game",
+    "steam",
+    "epic games",
+    "playstation",
+    "xbox",
+    "nintendo",
+    "game pass",
     "shopping",
+    "amazon",
+    "flipkart",
+    "myntra",
+    "ajio",
+    "nykaa",
+    "meesho",
+    "snapdeal",
+    "shopclues",
+    "tatacliq",
+    "firstcry",
+    "lifestyle",
+    "max fashion",
+    "pantaloons",
+    "h&m",
+    "hm",
+    "zara",
+    "westside",
+    "trends",
+    "clothing",
+    "fashion",
+    "dress",
+    "shirt",
+    "jeans",
+    "shoes",
+    "sneakers",
+    "watch",
+    "perfume",
+    "cosmetics",
+    "makeup",
+    "beauty",
+    "salon",
+    "spa",
+    "parlour",
+    "barber",
+    "grooming",
+    "gym",
+    "fitness",
+    "fitness club",
+    "yoga",
+    "dance class",
+    "hobby",
+    "concert",
+    "event ticket",
+    "trip",
+    "travel booking",
+    "vacation",
+    "holiday",
+    "resort",
+    "hotel",
+    "airbnb",
+    "oyo",
+    "makemytrip",
+    "goibibo",
+    "yatra",
+    "booking.com",
+    "cleartrip",
+    "flight",
+    "weekend",
+    "outing",
+    "party",
+    "pub",
+    "lounge",
+    "gift",
+    "gift shop",
+    "electronics",
+    "gadget",
+    "gadgets",
+    "headphones",
+    "earbuds",
+    "mobile accessory",
+    "decor",
+    "home decor",
+    "furniture upgrade",
+    "pet accessories",
+    "pet toys",
+    "snacks",
+    "soft drink",
+    "juice bar",
+    "uber",
+    "ola",
+    "rapido",
+    "cab",
+    "taxi",
+    "auto ride",
+    "premium ride",
     "entertainment",
-  ],
-  need: [
-    "rent",
-    "grocery",
-    "groceries",
-    "hospital",
-    "medical",
-    "fuel",
-    "petrol",
-    "electricity",
-    "water",
-    "internet",
-    "school",
-    "transport",
-    "dinner essentials",
-  ],
-  saving: [
-    "sip",
-    "mutual fund",
-    "investment",
-    "fd",
-    "rd",
-    "ppf",
-    "savings",
-    "transfer to savings",
+    "recreation",
+    "luxury",
+    "premium",
+    "toy",
+    "toys",
+    "mall",
+    "shopping mall",
   ],
 };
 
@@ -66,28 +453,12 @@ const MANUAL_CATEGORIES = [
 ];
 const ALL_ALLOWED_CATEGORIES = [...IMPORT_CATEGORIES, ...MANUAL_CATEGORIES];
 
-const normalizeText = (value) => String(value || "").trim().toLowerCase();
-
-const getUserId = (req) => {
-  const headerUserId = req.headers["x-user-id"];
-  return String(headerUserId || "").trim();
-};
-
-const ensureUserId = (req, res) => {
-  const userId = getUserId(req);
-
-  if (!userId) {
-    res.status(401).json({ message: "User not found. Please login again." });
-    return null;
-  }
-
-  if (!mongoose.Types.ObjectId.isValid(userId)) {
-    res.status(401).json({ message: "Invalid user session. Please login again." });
-    return null;
-  }
-
-  return userId;
-};
+const normalizeText = (value) =>
+  String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^\w\s&/-]/g, " ")
+    .replace(/\s+/g, " ");
 
 const cleanAmount = (value) => {
   if (value === undefined || value === null || value === "") return 0;
@@ -133,20 +504,55 @@ const normalizeDate = (value) => {
   return new Date().toISOString().slice(0, 10);
 };
 
+const scoreCategory = (text, keywords) => {
+  let score = 0;
+
+  for (const keyword of keywords) {
+    const normalizedKeyword = normalizeText(keyword);
+    if (!normalizedKeyword) continue;
+
+    if (text === normalizedKeyword) {
+      score += 6;
+      continue;
+    }
+
+    if (text.includes(` ${normalizedKeyword} `)) {
+      score += 5;
+      continue;
+    }
+
+    if (text.startsWith(`${normalizedKeyword} `) || text.endsWith(` ${normalizedKeyword}`)) {
+      score += 4;
+      continue;
+    }
+
+    if (text.includes(normalizedKeyword)) {
+      score += 2;
+    }
+  }
+
+  return score;
+};
+
 const classifyTransaction = (description = "") => {
-  const text = normalizeText(description);
+  const rawText = normalizeText(description);
+  const text = ` ${rawText} `;
 
-  for (const keyword of CATEGORY_RULES.saving) {
-    if (text.includes(keyword)) return "saving";
+  if (!rawText) return "uncategorized";
+
+  const savingScore = scoreCategory(text, CATEGORY_RULES.saving);
+  const needScore = scoreCategory(text, CATEGORY_RULES.need);
+  const wantScore = scoreCategory(text, CATEGORY_RULES.want);
+
+  if (savingScore === 0 && needScore === 0 && wantScore === 0) {
+    return "uncategorized";
   }
 
-  for (const keyword of CATEGORY_RULES.need) {
-    if (text.includes(keyword)) return "need";
-  }
+  const maxScore = Math.max(savingScore, needScore, wantScore);
 
-  for (const keyword of CATEGORY_RULES.want) {
-    if (text.includes(keyword)) return "want";
-  }
+  if (savingScore === maxScore && savingScore > 0) return "saving";
+  if (needScore === maxScore && needScore > 0) return "need";
+  if (wantScore === maxScore && wantScore > 0) return "want";
 
   return "uncategorized";
 };
@@ -212,6 +618,8 @@ const parseCsvBuffer = (buffer) =>
               "particulars",
               "merchant",
               "title",
+              "transaction description",
+              "merchant name",
             ]);
 
             const amountKey = detectCsvField(row, [
@@ -324,11 +732,99 @@ const isBrokenPdfStructureError = (err) => {
   );
 };
 
+const ensureSingleAllowedUpload = (req, res, expectedType) => {
+  if (!req.file) {
+    res.status(400).json({
+      code: "FILE_MISSING",
+      message: `${expectedType.toUpperCase()} file is required`,
+    });
+    return false;
+  }
+
+  const originalName = String(req.file.originalname || "").toLowerCase().trim();
+  const mimeType = String(req.file.mimetype || "").toLowerCase().trim();
+
+  if (expectedType === "csv") {
+    const validCsvMimeTypes = [
+      "text/csv",
+      "application/csv",
+      "application/vnd.ms-excel",
+    ];
+
+    const isCsv =
+      originalName.endsWith(".csv") && validCsvMimeTypes.includes(mimeType);
+
+    if (!isCsv) {
+      res.status(400).json({
+        code: "INVALID_CSV_FILE",
+        message: "Please upload a valid CSV file under 5MB",
+      });
+      return false;
+    }
+  }
+
+  if (expectedType === "pdf") {
+    const isPdf = originalName.endsWith(".pdf") && mimeType === "application/pdf";
+
+    if (!isPdf) {
+      res.status(400).json({
+        code: "INVALID_PDF_FILE",
+        message: "Please upload a valid PDF file under 5MB",
+      });
+      return false;
+    }
+  }
+
+  return true;
+};
+
+const runSingleUpload = (req, res, expectedType) =>
+  new Promise((resolve, reject) => {
+    upload.single("file")(req, res, (err) => {
+      if (err) {
+        if (err instanceof multer.MulterError) {
+          if (err.code === "LIMIT_FILE_SIZE") {
+            return reject({
+              status: 400,
+              code: "FILE_TOO_LARGE",
+              message: "File is too large. Please upload a file under 5MB.",
+            });
+          }
+
+          if (err.code === "LIMIT_FILE_COUNT") {
+            return reject({
+              status: 400,
+              code: "TOO_MANY_FILES",
+              message: "Please upload only one file at a time.",
+            });
+          }
+
+          return reject({
+            status: 400,
+            code: "UPLOAD_ERROR",
+            message: "Upload failed. Please try again with one valid file.",
+          });
+        }
+
+        return reject({
+          status: 500,
+          code: "UPLOAD_ERROR",
+          message: "Upload failed. Please try again.",
+        });
+      }
+
+      if (!ensureSingleAllowedUpload(req, res, expectedType)) {
+        return resolve(false);
+      }
+
+      return resolve(true);
+    });
+  });
+
 // GET ALL EXPENSES
 router.get("/", async (req, res) => {
   try {
-    const userId = ensureUserId(req, res);
-    if (!userId) return;
+    const userId = req.user.userId;
 
     const expenses = await Expense.find({ user: userId }).sort({ createdAt: -1 });
     res.status(200).json(expenses);
@@ -341,9 +837,7 @@ router.get("/", async (req, res) => {
 // ADD EXPENSE
 router.post("/", async (req, res) => {
   try {
-    const userId = ensureUserId(req, res);
-    if (!userId) return;
-
+    const userId = req.user.userId;
     const { title, amount, category, date } = req.body;
 
     if (!title || !title.trim()) {
@@ -358,7 +852,7 @@ router.post("/", async (req, res) => {
       user: userId,
       title: title.trim(),
       amount: Number(amount),
-      suggestedCategory: "",
+      suggestedCategory: classifyTransaction(title),
       category: category || "General",
       date: date || Date.now(),
     });
@@ -376,28 +870,16 @@ router.post("/", async (req, res) => {
 });
 
 // IMPORT CSV BANK STATEMENT
-router.post("/import/csv", upload.single("file"), async (req, res) => {
+router.post("/import/csv", importLimiter, async (req, res) => {
   try {
-    const userId = ensureUserId(req, res);
-    if (!userId) return;
-
-    if (!req.file) {
-      return res.status(400).json({ message: "CSV file is required" });
-    }
-
-    const isCsv =
-      req.file.mimetype === "text/csv" ||
-      req.file.mimetype === "application/vnd.ms-excel" ||
-      req.file.originalname.toLowerCase().endsWith(".csv");
-
-    if (!isCsv) {
-      return res.status(400).json({ message: "Please upload a valid CSV file" });
-    }
+    const uploadPassed = await runSingleUpload(req, res, "csv");
+    if (!uploadPassed) return;
 
     const transactions = await parseCsvBuffer(req.file.buffer);
 
     if (!transactions.length) {
       return res.status(400).json({
+        code: "CSV_NO_TRANSACTIONS",
         message:
           "No valid transactions found in CSV. Please check the statement format.",
       });
@@ -409,33 +891,26 @@ router.post("/import/csv", upload.single("file"), async (req, res) => {
       summary: summarizeImportedTransactions(transactions),
     });
   } catch (err) {
-    console.log("CSV import error:", err.message);
-    res.status(500).json({ message: "Failed to import CSV bank statement" });
+    console.log("CSV import error:", err.message || err);
+
+    return res.status(err.status || 500).json({
+      code: err.code || "CSV_IMPORT_FAILED",
+      message: err.message || "Failed to import CSV bank statement",
+    });
   }
 });
 
 // IMPORT PDF BANK STATEMENT
-router.post("/import/pdf", upload.single("file"), async (req, res) => {
+router.post("/import/pdf", importLimiter, async (req, res) => {
   try {
-    const userId = ensureUserId(req, res);
-    if (!userId) return;
-
-    if (!req.file) {
-      return res.status(400).json({ message: "PDF file is required" });
-    }
-
-    const isPdf =
-      req.file.mimetype === "application/pdf" ||
-      req.file.originalname.toLowerCase().endsWith(".pdf");
-
-    if (!isPdf) {
-      return res.status(400).json({ message: "Please upload a valid PDF file" });
-    }
+    const uploadPassed = await runSingleUpload(req, res, "pdf");
+    if (!uploadPassed) return;
 
     const pdfText = await extractPdfText(req.file.buffer);
 
     if (!pdfText.trim()) {
       return res.status(400).json({
+        code: "PDF_NO_TEXT",
         message:
           "This PDF does not contain readable text. Try a text-based bank statement PDF or use CSV.",
       });
@@ -445,6 +920,7 @@ router.post("/import/pdf", upload.single("file"), async (req, res) => {
 
     if (!transactions.length) {
       return res.status(400).json({
+        code: "PDF_NO_TRANSACTIONS",
         message:
           "Could not extract transaction rows from this PDF. Try a clearer bank statement PDF or use CSV for better accuracy.",
       });
@@ -460,13 +936,15 @@ router.post("/import/pdf", upload.single("file"), async (req, res) => {
 
     if (isBrokenPdfStructureError(err)) {
       return res.status(400).json({
+        code: "PDF_BROKEN_STRUCTURE",
         message:
-          "This PDF seems damaged or uses an unsupported structure (bad XRef entry). Open it in Chrome/Adobe Reader and Save as PDF, then upload again. CSV import will usually work better.",
+          "This PDF seems damaged or uses an unsupported structure. Open it in Chrome or Adobe Reader, save it again as PDF, then upload again. CSV import usually works better.",
       });
     }
 
-    return res.status(500).json({
-      message: "Failed to import PDF bank statement",
+    return res.status(err.status || 500).json({
+      code: err.code || "PDF_IMPORT_FAILED",
+      message: err.message || "Failed to import PDF bank statement",
     });
   }
 });
@@ -474,8 +952,7 @@ router.post("/import/pdf", upload.single("file"), async (req, res) => {
 // SAVE IMPORTED TRANSACTIONS TO EXPENSES
 router.post("/import/save", async (req, res) => {
   try {
-    const userId = ensureUserId(req, res);
-    if (!userId) return;
+    const userId = req.user.userId;
 
     const transactions = Array.isArray(req.body?.transactions)
       ? req.body.transactions
@@ -497,7 +974,7 @@ router.post("/import/save", async (req, res) => {
           : "uncategorized";
         const suggestedCategory = IMPORT_CATEGORIES.includes(item?.suggestedCategory)
           ? item.suggestedCategory
-          : "uncategorized";
+          : classifyTransaction(title);
 
         if (!title || amount <= 0) return null;
 
@@ -536,8 +1013,7 @@ router.post("/import/save", async (req, res) => {
 // DELETE ALL EXPENSES FOR LOGGED-IN USER
 router.delete("/", async (req, res) => {
   try {
-    const userId = ensureUserId(req, res);
-    if (!userId) return;
+    const userId = req.user.userId;
 
     const result = await Expense.deleteMany({ user: userId });
 
@@ -559,9 +1035,7 @@ router.delete("/", async (req, res) => {
 // UPDATE FULL EXPENSE
 router.patch("/:id", async (req, res) => {
   try {
-    const userId = ensureUserId(req, res);
-    if (!userId) return;
-
+    const userId = req.user.userId;
     const { title, amount, category, date } = req.body;
 
     if (!title || !String(title).trim()) {
@@ -590,6 +1064,7 @@ router.patch("/:id", async (req, res) => {
         title: String(title).trim(),
         amount: Number(cleanedAmount),
         category,
+        suggestedCategory: classifyTransaction(title),
         date: normalizeDate(date),
       },
       { new: true }
@@ -614,9 +1089,7 @@ router.patch("/:id", async (req, res) => {
 // UPDATE EXPENSE CATEGORY
 router.patch("/:id/category", async (req, res) => {
   try {
-    const userId = ensureUserId(req, res);
-    if (!userId) return;
-
+    const userId = req.user.userId;
     const { category } = req.body;
 
     if (!category || !ALL_ALLOWED_CATEGORIES.includes(category)) {
@@ -650,8 +1123,7 @@ router.patch("/:id/category", async (req, res) => {
 // DELETE EXPENSE
 router.delete("/:id", async (req, res) => {
   try {
-    const userId = ensureUserId(req, res);
-    if (!userId) return;
+    const userId = req.user.userId;
 
     const deletedExpense = await Expense.findOneAndDelete({
       _id: req.params.id,

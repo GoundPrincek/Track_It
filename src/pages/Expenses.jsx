@@ -75,6 +75,12 @@ function Expenses() {
   const [importError, setImportError] = useState("");
   const [importSuccess, setImportSuccess] = useState("");
   const [importedTransactions, setImportedTransactions] = useState([]);
+  const [showImportErrorModal, setShowImportErrorModal] = useState(false);
+  const [importErrorDetails, setImportErrorDetails] = useState({
+    title: "",
+    message: "",
+    tips: [],
+  });
 
   const [pageMessage, setPageMessage] = useState({
     type: "",
@@ -125,6 +131,165 @@ function Expenses() {
 
     return () => clearTimeout(timer);
   }, [pageMessage]);
+
+  const getImportErrorContent = (error) => {
+    const status = error?.response?.status;
+    const code = error?.response?.data?.code;
+    const message =
+      error?.response?.data?.message || "Failed to import bank statement";
+
+    if (status === 401) {
+      return {
+        title: "Login expired",
+        message: "Your session is no longer valid. Please login again and retry.",
+        tips: ["Login again", "Then retry the action"],
+      };
+    }
+
+    if (code === "FILE_MISSING") {
+      return {
+        title: "No file selected",
+        message,
+        tips: ["Choose one CSV or PDF file", "Then click Import Statement again"],
+      };
+    }
+
+    if (code === "FILE_TOO_LARGE") {
+      return {
+        title: "File is too large",
+        message,
+        tips: ["Upload a file smaller than 5MB", "Try exporting a shorter statement range"],
+      };
+    }
+
+    if (code === "TOO_MANY_FILES") {
+      return {
+        title: "Too many files selected",
+        message,
+        tips: ["Select only one file", "Remove extra files and retry"],
+      };
+    }
+
+    if (code === "INVALID_CSV_FILE" || code === "INVALID_PDF_FILE") {
+      return {
+        title: "Invalid file type",
+        message,
+        tips: ["Use only .csv for CSV upload", "Use only .pdf for PDF upload"],
+      };
+    }
+
+    if (code === "PDF_BROKEN_STRUCTURE") {
+      return {
+        title: "Damaged or unsupported PDF",
+        message,
+        tips: [
+          "Open the PDF in Chrome or Adobe Reader",
+          "Use Save As PDF and upload the new file",
+          "CSV format usually works better",
+        ],
+      };
+    }
+
+    if (code === "PDF_NO_TEXT") {
+      return {
+        title: "Unreadable PDF",
+        message,
+        tips: [
+          "Use a text-based PDF statement",
+          "Avoid scanned image-only PDFs",
+          "Use CSV if available",
+        ],
+      };
+    }
+
+    if (code === "PDF_NO_TRANSACTIONS" || code === "CSV_NO_TRANSACTIONS") {
+      return {
+        title: "No valid transactions found",
+        message,
+        tips: [
+          "Check the bank statement format",
+          "Try a cleaner export",
+          "Use CSV for better accuracy",
+        ],
+      };
+    }
+
+    if (code === "IMPORT_RATE_LIMIT") {
+      return {
+        title: "Too many upload attempts",
+        message,
+        tips: [
+          "Wait a few minutes before retrying",
+          "Check the file before uploading again",
+        ],
+      };
+    }
+
+    if (code === "NO_IMPORTED_TRANSACTIONS") {
+      return {
+        title: "Nothing to save",
+        message,
+        tips: [
+          "Import a statement first",
+          "Then review the imported transactions before saving",
+        ],
+      };
+    }
+
+    if (
+      message.toLowerCase().includes("no valid imported transactions found")
+    ) {
+      return {
+        title: "No valid imported data to save",
+        message,
+        tips: [
+          "Check if imported rows have description and amount",
+          "Re-import a cleaner bank statement",
+          "Try CSV for better parsing",
+        ],
+      };
+    }
+
+    if (
+      message.toLowerCase().includes("no imported transactions provided")
+    ) {
+      return {
+        title: "Missing imported transactions",
+        message,
+        tips: [
+          "Import the statement again",
+          "Make sure preview data is visible before saving",
+        ],
+      };
+    }
+
+    if (message.toLowerCase().includes("failed to save imported expenses")) {
+      return {
+        title: "Save failed",
+        message,
+        tips: [
+          "Try saving again",
+          "Refresh the page if needed",
+          "Re-import the statement if the preview was cleared",
+        ],
+      };
+    }
+
+    return {
+      title: "Action failed",
+      message,
+      tips: [
+        "Check the data and try again",
+        "Retry after a moment",
+      ],
+    };
+  };
+
+  const openImportErrorModal = (error) => {
+    const details = getImportErrorContent(error);
+    setImportErrorDetails(details);
+    setShowImportErrorModal(true);
+  };
 
   const handleChange = (e) => {
     setForm((prev) => ({
@@ -294,6 +459,7 @@ function Expenses() {
     setImportFile(file);
     setImportError("");
     setImportSuccess("");
+    setShowImportErrorModal(false);
 
     if (!file) return;
 
@@ -309,7 +475,18 @@ function Expenses() {
   const handleImportStatement = async () => {
     try {
       if (!importFile) {
+        const customError = {
+          response: {
+            status: 400,
+            data: {
+              code: "FILE_MISSING",
+              message: "Please choose a CSV or PDF file first.",
+            },
+          },
+        };
+
         setImportError("Please choose a CSV or PDF file first.");
+        openImportErrorModal(customError);
         return;
       }
 
@@ -320,6 +497,7 @@ function Expenses() {
       setImportError("");
       setImportSuccess("");
       setImportType(detectedType);
+      setShowImportErrorModal(false);
 
       const formData = new FormData();
       formData.append("file", importFile);
@@ -343,6 +521,7 @@ function Expenses() {
       setImportError(
         err.response?.data?.message || "Failed to import bank statement"
       );
+      openImportErrorModal(err);
     } finally {
       setImportLoading(false);
     }
@@ -364,13 +543,25 @@ function Expenses() {
   const handleSaveImportedExpenses = async () => {
     try {
       if (!importedTransactions.length) {
+        const customError = {
+          response: {
+            status: 400,
+            data: {
+              code: "NO_IMPORTED_TRANSACTIONS",
+              message: "No imported transactions available to save.",
+            },
+          },
+        };
+
         setImportError("No imported transactions available to save.");
+        openImportErrorModal(customError);
         return;
       }
 
       setImportSaving(true);
       setImportError("");
       setImportSuccess("");
+      setShowImportErrorModal(false);
 
       const payload = {
         transactions: importedTransactions.map((item) => ({
@@ -407,9 +598,11 @@ function Expenses() {
       }
     } catch (err) {
       console.log("Save imported expenses error:", err);
+
       setImportError(
         err.response?.data?.message || "Failed to save imported expenses"
       );
+      openImportErrorModal(err);
     } finally {
       setImportSaving(false);
     }
@@ -474,7 +667,7 @@ function Expenses() {
     return {
       badgeClass:
         "border-[var(--border-soft)] bg-[var(--panel-4)] text-[var(--text-primary)]",
-      valueClass: "text-[var(--text-primary)]",
+        valueClass: "text-[var(--text-primary)]",
     };
   };
 
@@ -792,6 +985,77 @@ function Expenses() {
       animate="show"
       variants={listVariants}
     >
+      <AnimatePresence>
+        {showImportErrorModal ? (
+          <motion.div
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/45 px-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96, y: 12 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: 12 }}
+              className="w-full max-w-lg rounded-[28px] border border-[var(--danger-border)] bg-[var(--panel-2)] p-5 shadow-2xl"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start gap-3">
+                  <div className="rounded-2xl bg-[var(--danger-bg)] p-2.5 text-[var(--danger-text)]">
+                    <AlertTriangle size={18} />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-[var(--text-primary)]">
+                      {importErrorDetails.title}
+                    </h3>
+                    <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
+                      {importErrorDetails.message}
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setShowImportErrorModal(false)}
+                  className="rounded-xl p-2 text-[var(--text-muted)] transition hover:bg-[var(--panel-3)]"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {importErrorDetails.tips?.length ? (
+                <div className="mt-4 rounded-2xl border border-[var(--border-soft)] bg-[var(--panel-3)] p-4">
+                  <p className="text-sm font-medium text-[var(--text-primary)]">
+                    What you can do:
+                  </p>
+                  <div className="mt-3 space-y-2">
+                    {importErrorDetails.tips.map((tip) => (
+                      <div
+                        key={tip}
+                        className="flex items-start gap-2 text-sm text-[var(--text-secondary)]"
+                      >
+                        <span className="mt-1 h-2 w-2 rounded-full bg-[var(--accent)]" />
+                        <span>{tip}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={() => setShowImportErrorModal(false)}
+                  className="theme-primary-btn inline-flex items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-medium"
+                >
+                  Okay
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+
       <motion.section
         variants={sectionVariants}
         className="theme-hero overflow-hidden rounded-[24px] p-4 sm:rounded-[26px] sm:p-5 md:p-6"
