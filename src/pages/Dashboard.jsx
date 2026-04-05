@@ -12,6 +12,7 @@ import {
   ArrowUpRight,
   Sparkles,
   AlertTriangle,
+  Coffee,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import {
@@ -142,13 +143,30 @@ function Dashboard() {
   const wants = Number(salaryData?.wants || 0);
   const savings = Number(salaryData?.savings || 0);
 
+  const currentMonth = new Date().getMonth();
+  const currentYear = new Date().getFullYear();
+
+  const currentMonthExpenses = useMemo(() => {
+    return expenses.filter(expense => {
+      const d = new Date(expense.date || expense.createdAt);
+      return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+    });
+  }, [expenses, currentMonth, currentYear]);
+
+  const currentMonthTodos = useMemo(() => {
+    return todos.filter(todo => {
+      const d = new Date(todo.workDate || todo.createdAt);
+      return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+    });
+  }, [todos, currentMonth, currentYear]);
+
   const totalExpenses = useMemo(
-    () => expenses.reduce((sum, item) => sum + Number(item.amount || 0), 0),
-    [expenses]
+    () => currentMonthExpenses.reduce((sum, item) => sum + Number(item.amount || 0), 0),
+    [currentMonthExpenses]
   );
 
   const categorizedSummary = useMemo(() => {
-    return expenses.reduce(
+    return currentMonthExpenses.reduce(
       (acc, item) => {
         const category = String(item.category || "").toLowerCase();
         const amount = Number(item.amount || 0);
@@ -163,13 +181,20 @@ function Dashboard() {
 
         return acc;
       },
-      {
-        want: 0,
-        need: 0,
-        saving: 0,
-      }
+      { want: 0, need: 0, saving: 0 }
     );
-  }, [expenses]);
+  }, [currentMonthExpenses]);
+
+  const now = new Date();
+  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+  const daysLeftInMonth = Math.max(1, daysInMonth - now.getDate());
+
+  const remainingWants = Math.max(0, wants - (categorizedSummary.want || 0));
+  const safeToSpendDaily = remainingWants / daysLeftInMonth;
+  
+  const needsPercent = needs > 0 ? Math.min(100, (categorizedSummary.need / needs) * 100) : 0;
+  const wantsPercent = wants > 0 ? Math.min(100, (categorizedSummary.want / wants) * 100) : 0;
+  const savingsPercent = savings > 0 ? Math.min(100, (categorizedSummary.saving / savings) * 100) : 0;
 
   const chartData = useMemo(() => {
     return [
@@ -211,29 +236,29 @@ function Dashboard() {
 
   const remainingBalance = salaryAmount - totalExpenses;
 
-  const completedGoals = todos.filter((t) => Number(t.progress) >= 100).length;
-  const pendingGoals = todos.filter((t) => Number(t.progress) === 0).length;
-  const inProgressGoals = todos.filter(
+  const completedGoals = currentMonthTodos.filter((t) => Number(t.progress) >= 100).length;
+  const pendingGoals = currentMonthTodos.filter((t) => Number(t.progress) === 0).length;
+  const inProgressGoals = currentMonthTodos.filter(
     (t) => Number(t.progress) > 0 && Number(t.progress) < 100
   ).length;
 
   const today = new Date().toISOString().split("T")[0];
   const todayGoals = todos.filter((t) => t.workDate === today);
-  const recentExpenses = expenses.slice(0, 5);
+  const recentExpenses = currentMonthExpenses.slice(0, 5);
 
   const averageProductivity =
-    todos.filter((t) => Number(t.productivityScore) > 0).length === 0
+    currentMonthTodos.filter((t) => Number(t.productivityScore) > 0).length === 0
       ? 0
       : (
-          todos.reduce((sum, t) => sum + Number(t.productivityScore || 0), 0) /
-          todos.filter((t) => Number(t.productivityScore) > 0).length
+          currentMonthTodos.reduce((sum, t) => sum + Number(t.productivityScore || 0), 0) /
+          currentMonthTodos.filter((t) => Number(t.productivityScore) > 0).length
         ).toFixed(1);
 
   const topCategory = useMemo(() => {
-    if (!expenses.length) return "No data";
+    if (!currentMonthExpenses.length) return "No data";
 
     const categoryTotals = {};
-    expenses.forEach((item) => {
+    currentMonthExpenses.forEach((item) => {
       const category = item.category || "General";
       categoryTotals[category] =
         (categoryTotals[category] || 0) + Number(item.amount || 0);
@@ -250,7 +275,7 @@ function Dashboard() {
     }
 
     return maxCategory;
-  }, [expenses]);
+  }, [currentMonthExpenses]);
 
   const smartInsight = useMemo(() => {
     if (!salaryAmount)
@@ -273,8 +298,8 @@ function Dashboard() {
     remainingBalance,
   ]);
 
-  const completionRate = todos.length
-    ? Math.round((completedGoals / todos.length) * 100)
+  const completionRate = currentMonthTodos.length
+    ? Math.round((completedGoals / currentMonthTodos.length) * 100)
     : 0;
 
   const savingsHealth =
@@ -466,24 +491,47 @@ function Dashboard() {
             </div>
           </div>
 
-          <motion.div
-            whileHover={cardHover}
-            className="theme-surface rounded-[22px] p-4 sm:rounded-[24px] sm:p-5"
-          >
-            <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--accent)]">
-              <Sparkles size={14} />
-              Smart Insight
-            </div>
+          <div className="flex flex-col justify-between gap-4">
+            <motion.div
+              whileHover={cardHover}
+              className={`rounded-[22px] p-4 sm:rounded-[24px] sm:p-5 ${
+                remainingWants === 0 
+                  ? "bg-[var(--danger-bg)] text-[var(--danger-text)] border border-[var(--danger-border)]"
+                  : "theme-surface"
+              }`}
+            >
+              <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--accent)] text-opacity-80">
+                <Coffee size={14} />
+                Safe-to-Spend Daily
+              </div>
+              
+              <h2 className="text-base font-semibold leading-7 sm:text-lg md:text-xl">
+                {wants === 0 ? "Set salary to unlock" : remainingWants === 0 ? "Budget Exhausted" : `${formatCurrency(safeToSpendDaily)} / day`}
+              </h2>
+              
+              <p className={`mt-2 text-sm leading-6 opacity-90 ${wants > 0 && remainingWants === 0 ? "text-[var(--danger-text)]" : "text-[var(--text-secondary)]"}`}>
+                {wants === 0 
+                  ? "Track your remaining 'Wants' allowance here."
+                  : remainingWants === 0 
+                  ? "You have exhausted your active 30% Wants limit for this month."
+                  : `You have ${formatCurrency(remainingWants)} left across ${daysLeftInMonth} days.`}
+              </p>
+            </motion.div>
 
-            <h2 className="text-base font-semibold leading-7 text-[var(--text-primary)] sm:text-lg md:text-xl">
-              {smartInsight}
-            </h2>
+            <motion.div
+              whileHover={cardHover}
+              className="theme-surface rounded-[22px] p-4 sm:rounded-[24px] sm:p-5"
+            >
+              <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--accent)]">
+                <Sparkles size={14} />
+                Smart Insight
+              </div>
 
-            <p className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">
-              Insight updates automatically based on your salary, expenses, and
-              task activity.
-            </p>
-          </motion.div>
+              <h2 className="text-base font-semibold leading-7 text-[var(--text-primary)] sm:text-lg">
+                {smartInsight}
+              </h2>
+            </motion.div>
+          </div>
         </div>
       </motion.section>
 
@@ -555,41 +603,75 @@ function Dashboard() {
               whileHover={{ x: 4 }}
               className="theme-surface-3 rounded-[20px] p-4"
             >
-              <p className="text-sm text-[var(--text-secondary)]">Needs Budget</p>
-              <h3 className="mt-1 text-lg font-semibold text-[var(--color-needs)] sm:text-xl">
-                {formatCurrency(needs)}
-              </h3>
-              <p className="mt-1 text-xs text-[var(--text-muted)]">
-                50% essential spending
-              </p>
+              <div className="flex justify-between items-end">
+                <div>
+                  <p className="text-sm text-[var(--text-secondary)]">Needs Budget</p>
+                  <h3 className="mt-1 text-lg font-semibold text-[var(--color-needs)] sm:text-xl">
+                    {formatCurrency(categorizedSummary.need || 0)} <span className="text-sm font-medium text-[var(--text-muted)]">/ {formatCurrency(needs)}</span>
+                  </h3>
+                </div>
+                <p className={`text-xs font-medium ${needsPercent >= 90 ? 'text-[var(--danger-text)] animate-pulse' : 'text-[var(--text-muted)]'}`}>
+                  {needsPercent.toFixed(0)}%
+                </p>
+              </div>
+              <div className="mt-3 h-2 w-full rounded-full bg-[var(--panel-4)] overflow-hidden">
+                <motion.div 
+                  initial={{ width: 0 }}
+                  animate={{ width: `${needsPercent}%` }}
+                  transition={{ duration: 1, ease: "easeOut" }}
+                  className={`h-full rounded-full ${needsPercent >= 90 ? 'bg-[var(--danger-text)]' : 'bg-[var(--color-needs)]'}`}
+                />
+              </div>
             </motion.div>
 
             <motion.div
               whileHover={{ x: 4 }}
               className="theme-surface-3 rounded-[20px] p-4"
             >
-              <p className="text-sm text-[var(--text-secondary)]">Wants Budget</p>
-              <h3 className="mt-1 text-lg font-semibold text-[var(--color-wants)] sm:text-xl">
-                {formatCurrency(wants)}
-              </h3>
-              <p className="mt-1 text-xs text-[var(--text-muted)]">
-                30% lifestyle spending
-              </p>
+              <div className="flex justify-between items-end">
+                <div>
+                  <p className="text-sm text-[var(--text-secondary)]">Wants Budget</p>
+                  <h3 className="mt-1 text-lg font-semibold text-[var(--color-wants)] sm:text-xl">
+                    {formatCurrency(categorizedSummary.want || 0)} <span className="text-sm font-medium text-[var(--text-muted)]">/ {formatCurrency(wants)}</span>
+                  </h3>
+                </div>
+                <p className={`text-xs font-medium ${wantsPercent >= 90 ? 'text-[var(--danger-text)] animate-pulse' : 'text-[var(--text-muted)]'}`}>
+                  {wantsPercent.toFixed(0)}%
+                </p>
+              </div>
+              <div className="mt-3 h-2 w-full rounded-full bg-[var(--panel-4)] overflow-hidden">
+                <motion.div 
+                  initial={{ width: 0 }}
+                  animate={{ width: `${wantsPercent}%` }}
+                  transition={{ duration: 1, ease: "easeOut" }}
+                  className={`h-full rounded-full ${wantsPercent >= 90 ? 'bg-[var(--danger-text)]' : 'bg-[var(--color-wants)]'}`}
+                />
+              </div>
             </motion.div>
 
             <motion.div
               whileHover={{ x: 4 }}
               className="theme-surface-3 rounded-[20px] p-4"
             >
-              <p className="text-sm text-[var(--text-secondary)]">
-                Savings Target
-              </p>
-              <h3 className="mt-1 text-lg font-semibold text-[var(--color-savings)] sm:text-xl">
-                {formatCurrency(savings)}
-              </h3>
-              <p className="mt-1 text-xs text-[var(--text-muted)]">
-                20% future savings
-              </p>
+               <div className="flex justify-between items-end">
+                <div>
+                  <p className="text-sm text-[var(--text-secondary)]">Savings Target</p>
+                  <h3 className="mt-1 text-lg font-semibold text-[var(--color-savings)] sm:text-xl">
+                    {formatCurrency(categorizedSummary.saving || 0)} <span className="text-sm font-medium text-[var(--text-muted)]">/ {formatCurrency(savings)}</span>
+                  </h3>
+                </div>
+                <p className="text-xs font-medium text-[var(--text-muted)]">
+                  {savingsPercent.toFixed(0)}%
+                </p>
+              </div>
+              <div className="mt-3 h-2 w-full rounded-full bg-[var(--panel-4)] overflow-hidden">
+                <motion.div 
+                  initial={{ width: 0 }}
+                  animate={{ width: `${savingsPercent}%` }}
+                  transition={{ duration: 1, ease: "easeOut" }}
+                  className="h-full rounded-full bg-[var(--color-savings)]"
+                />
+              </div>
             </motion.div>
           </div>
         </motion.div>
@@ -720,8 +802,12 @@ function Dashboard() {
           </div>
 
           {recentExpenses.length === 0 ? (
-            <div className="rounded-[20px] border border-dashed border-[var(--border-soft)] bg-[var(--panel-3)] p-5 text-sm text-[var(--text-muted)] sm:p-6">
-              No expenses added yet.
+            <div className="flex flex-col items-center justify-center rounded-[20px] border border-dashed border-[var(--border-soft)] bg-[var(--panel-3)] py-10 text-center">
+              <div className="mb-3 rounded-full bg-[var(--panel-4)] p-3 text-[var(--text-muted)]">
+                <Receipt size={24} />
+              </div>
+              <p className="text-sm font-medium text-[var(--text-primary)]">No expenses this month</p>
+              <p className="mt-1 text-xs text-[var(--text-muted)]">Track your first expense to see recent activity.</p>
             </div>
           ) : (
             <motion.div variants={containerVariants} className="space-y-3">
@@ -787,8 +873,12 @@ function Dashboard() {
           </div>
 
           {!hasChartData ? (
-            <div className="rounded-[20px] border border-dashed border-[var(--border-soft)] bg-[var(--panel-3)] p-5 text-sm text-[var(--text-muted)] sm:p-6">
-              No needs, wants, or savings expenses available for the chart yet.
+            <div className="flex h-[290px] w-full flex-col items-center justify-center rounded-[24px] border border-dashed border-[var(--border-soft)] bg-[var(--panel-3)] text-center">
+              <div className="mb-3 rounded-full bg-[var(--panel-4)] p-3 text-[var(--text-muted)]">
+                <Target size={24} />
+              </div>
+              <p className="text-sm font-medium text-[var(--text-primary)]">No category data</p>
+              <p className="mt-1 max-w-[200px] text-xs text-[var(--text-muted)]">Add needs, wants, or savings expenses this month to see your chart.</p>
             </div>
           ) : (
             <div className="grid gap-4 lg:grid-cols-[0.95fr_1.05fr]">

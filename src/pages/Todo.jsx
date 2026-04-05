@@ -630,8 +630,12 @@ function Todo() {
             </div>
 
             {todayTimelineTodos.length === 0 ? (
-              <div className="rounded-[20px] border border-dashed border-[var(--border-soft)] bg-[var(--panel-3)] p-5 text-sm text-[var(--text-muted)] sm:p-6">
-                No tasks planned for today.
+              <div className="flex flex-col items-center justify-center rounded-[20px] border border-dashed border-[var(--border-soft)] bg-[var(--panel-3)] py-10 text-center">
+                <div className="mb-3 rounded-full bg-[var(--panel-4)] p-3 text-[var(--text-muted)]">
+                  <CalendarDays size={24} />
+                </div>
+                <p className="text-sm font-medium text-[var(--text-primary)]">No tasks scheduled today</p>
+                <p className="mt-1 text-xs text-[var(--text-muted)]">Set a goal's work date to today to see it here.</p>
               </div>
             ) : (
               <div className="space-y-3">
@@ -782,8 +786,12 @@ function Todo() {
         </div>
 
         {todos.length === 0 ? (
-          <div className="rounded-[20px] border border-dashed border-[var(--border-soft)] bg-[var(--panel-3)] p-5 text-sm text-[var(--text-muted)] sm:p-6">
-            No goals added yet.
+          <div className="flex flex-col items-center justify-center rounded-[20px] border border-dashed border-[var(--border-soft)] bg-[var(--panel-3)] py-12 text-center">
+            <div className="mb-3 rounded-full bg-[var(--panel-4)] p-3 text-[var(--text-muted)]">
+              <Target size={24} />
+            </div>
+            <p className="text-sm font-medium text-[var(--text-primary)]">No goals found</p>
+            <p className="mt-1 text-xs text-[var(--text-muted)]">Create your first goal to start tracking progress.</p>
           </div>
         ) : (
           <div className="grid gap-3">

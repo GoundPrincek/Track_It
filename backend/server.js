@@ -9,30 +9,42 @@ const authRoutes = require("./routes/authRoutes");
 const salaryRoutes = require("./routes/salaryRoutes");
 const expenseRoutes = require("./routes/expenseRoutes");
 const todoRoutes = require("./routes/todoRoutes");
+const uploadRoutes = require("./routes/uploadRoutes");
+const notificationRoutes = require("./routes/notificationRoutes");
 
 const app = express();
 
 const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO_URI;
-const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:5173";
+const CLIENT_URL = process.env.CLIENT_URL;
 
 const normalizeOrigin = (value) =>
   String(value || "").trim().replace(/\/+$/, "");
 
 const normalizedClientUrl = normalizeOrigin(CLIENT_URL);
 
+// Allow fetching fallback origins from an ALLOWED_ORIGINS env variable (comma-separated)
+const customOrigins = (process.env.ALLOWED_ORIGINS || "")
+  .split(",")
+  .map(normalizeOrigin)
+  .filter(Boolean);
+
 const allowedOrigins = [
-  "http://localhost:5173",
-  "http://127.0.0.1:5173",
   normalizedClientUrl,
+  ...customOrigins,
 ].filter(Boolean);
 
 const isAllowedVercelPreviewOrigin = (origin) => {
   const normalizedOrigin = normalizeOrigin(origin);
-
-  return /^https:\/\/trackit2(?:-[a-z0-9-]+)?-goundprinceks-projects\.vercel\.app$/i.test(
-    normalizedOrigin
-  );
+  // Optional: move the regex pattern to env too if completely softcoded, but maybe this is standard for Vercel
+  const pattern = process.env.VERCEL_PREVIEW_PATTERN || "^https:\\/\\/trackit2(?:-[a-z0-9-]+)?-[^.]+\\.vercel\\.app$";
+  
+  try {
+    const regex = new RegExp(pattern, "i");
+    return regex.test(normalizedOrigin);
+  } catch {
+    return false;
+  }
 };
 
 const isAllowedOrigin = (origin) => {
@@ -99,6 +111,8 @@ app.use("/api/auth", authLimiter, authRoutes);
 app.use("/api/salary", salaryRoutes);
 app.use("/api/expenses", expenseRoutes);
 app.use("/api/todos", todoRoutes);
+app.use("/api/upload", uploadRoutes);
+app.use("/api/notifications", notificationRoutes);
 
 if (!MONGO_URI) {
   console.log("Missing MONGO_URI in environment variables");

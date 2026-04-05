@@ -1,8 +1,7 @@
 import axios from "axios";
 
-const DEV_API_BASE = "http://127.0.0.1:5000/api";
-
-export const API_BASE = import.meta.env.VITE_API_BASE || DEV_API_BASE;
+// Fully softcoded: read from environment, fallback to relative path for production/same-origin proxies
+export const API_BASE = import.meta.env.VITE_API_BASE || "/api";
 
 export const clearStoredAuth = () => {
   try {

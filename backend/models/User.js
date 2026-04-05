@@ -19,6 +19,31 @@ const userSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    resetPasswordToken: {
+      type: String,
+    },
+    resetPasswordExpires: {
+      type: Date,
+    },
+    preferences: {
+      emailNotifications: {
+        type: Boolean,
+        default: true,
+      },
+      whatsappNotifications: {
+        type: Boolean,
+        default: false,
+      },
+      whatsappNumber: {
+        type: String,
+        trim: true,
+        default: "",
+      },
+      urgentOnlyMode: {
+        type: Boolean,
+        default: false,
+      },
+    },
   },
   { timestamps: true }
 );

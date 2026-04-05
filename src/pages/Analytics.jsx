@@ -78,24 +78,37 @@ function Analytics() {
   };
 
   const analytics = useMemo(() => {
-    const totalExpenses = expenses.reduce(
+    const currentMonth = new Date().getMonth();
+    const currentYear = new Date().getFullYear();
+
+    const currentMonthExpenses = expenses.filter(expense => {
+      const d = new Date(expense.date || expense.createdAt);
+      return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+    });
+
+    const currentMonthTodos = todos.filter(todo => {
+      const d = new Date(todo.workDate || todo.createdAt);
+      return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+    });
+
+    const totalExpenses = currentMonthExpenses.reduce(
       (sum, item) => sum + Number(item.amount || 0),
       0
     );
 
-    const needsSpent = expenses
+    const needsSpent = currentMonthExpenses
       .filter((item) => item.category === "need")
       .reduce((sum, item) => sum + Number(item.amount || 0), 0);
 
-    const wantsSpent = expenses
+    const wantsSpent = currentMonthExpenses
       .filter((item) => item.category === "want")
       .reduce((sum, item) => sum + Number(item.amount || 0), 0);
 
-    const savingsSpent = expenses
+    const savingsSpent = currentMonthExpenses
       .filter((item) => item.category === "saving")
       .reduce((sum, item) => sum + Number(item.amount || 0), 0);
 
-    const uncategorizedSpent = expenses
+    const uncategorizedSpent = currentMonthExpenses
       .filter(
         (item) =>
           item.category !== "need" &&
@@ -104,20 +117,20 @@ function Analytics() {
       )
       .reduce((sum, item) => sum + Number(item.amount || 0), 0);
 
-    const completedGoals = todos.filter((t) => Number(t.progress) >= 100).length;
-    const inProgressGoals = todos.filter(
+    const completedGoals = currentMonthTodos.filter((t) => Number(t.progress) >= 100).length;
+    const inProgressGoals = currentMonthTodos.filter(
       (t) => Number(t.progress) > 0 && Number(t.progress) < 100
     ).length;
-    const pendingGoals = todos.filter((t) => Number(t.progress) === 0).length;
+    const pendingGoals = currentMonthTodos.filter((t) => Number(t.progress) === 0).length;
 
-    const completionRate = todos.length
-      ? Math.round((completedGoals / todos.length) * 100)
+    const completionRate = currentMonthTodos.length
+      ? Math.round((completedGoals / currentMonthTodos.length) * 100)
       : 0;
 
-    const averageProgress = todos.length
+    const averageProgress = currentMonthTodos.length
       ? Math.round(
-          todos.reduce((sum, todo) => sum + Number(todo.progress || 0), 0) /
-            todos.length
+          currentMonthTodos.reduce((sum, todo) => sum + Number(todo.progress || 0), 0) /
+            currentMonthTodos.length
         )
       : 0;
 
@@ -441,12 +454,17 @@ function Analytics() {
 
           <div className="h-[320px]">
             {loading ? (
-              <div className="flex h-full items-center justify-center rounded-[20px] border border-dashed border-[var(--border-soft)] bg-[var(--panel-3)] text-sm text-[var(--text-muted)]">
-                Loading chart...
+              <div className="flex h-[290px] w-full flex-col items-center justify-center rounded-[24px] border border-dashed border-[var(--border-soft)] bg-[var(--panel-3)] text-center">
+                <div className="mb-3 h-8 w-8 animate-spin rounded-full border-4 border-[var(--border-soft)] border-t-[var(--accent)]"></div>
+                <p className="mt-3 text-sm text-[var(--text-muted)]">Loading chart...</p>
               </div>
             ) : expenseCategoryChartData.length === 0 ? (
-              <div className="flex h-full items-center justify-center rounded-[20px] border border-dashed border-[var(--border-soft)] bg-[var(--panel-3)] text-sm text-[var(--text-muted)]">
-                Add expenses to unlock category charts.
+              <div className="flex h-[290px] w-full flex-col items-center justify-center rounded-[24px] border border-dashed border-[var(--border-soft)] bg-[var(--panel-3)] text-center">
+                <div className="mb-3 rounded-full bg-[var(--panel-4)] p-3 text-[var(--text-muted)]">
+                  <BarChart3 size={24} />
+                </div>
+                <p className="text-sm font-medium text-[var(--text-primary)]">No category data</p>
+                <p className="mt-1 max-w-[200px] text-xs text-[var(--text-muted)]">Add expenses this month to see the category chart.</p>
               </div>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
@@ -496,12 +514,16 @@ function Analytics() {
 
           <div className="h-[320px]">
             {loading ? (
-              <div className="flex h-full items-center justify-center rounded-[20px] border border-dashed border-[var(--border-soft)] bg-[var(--panel-3)] text-sm text-[var(--text-muted)]">
-                Loading chart...
+              <div className="flex h-[290px] w-full flex-col items-center justify-center rounded-[24px] border border-dashed border-[var(--border-soft)] bg-[var(--panel-3)] text-center">
+                <p className="mt-3 text-sm text-[var(--text-muted)]">Loading chart...</p>
               </div>
             ) : todos.length === 0 ? (
-              <div className="flex h-full items-center justify-center rounded-[20px] border border-dashed border-[var(--border-soft)] bg-[var(--panel-3)] text-sm text-[var(--text-muted)]">
-                Add goals to unlock progress charts.
+              <div className="flex h-[290px] w-full flex-col items-center justify-center rounded-[24px] border border-dashed border-[var(--border-soft)] bg-[var(--panel-3)] text-center">
+                <div className="mb-3 rounded-full bg-[var(--panel-4)] p-3 text-[var(--text-muted)]">
+                  <Target size={24} />
+                </div>
+                <p className="text-sm font-medium text-[var(--text-primary)]">No goal data</p>
+                <p className="mt-1 max-w-[200px] text-xs text-[var(--text-muted)]">Add goals this month to see progress charts.</p>
               </div>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
@@ -558,12 +580,16 @@ function Analytics() {
 
           <div className="h-[340px]">
             {loading ? (
-              <div className="flex h-full items-center justify-center rounded-[20px] border border-dashed border-[var(--border-soft)] bg-[var(--panel-3)] text-sm text-[var(--text-muted)]">
-                Loading chart...
+              <div className="flex h-[290px] w-full flex-col items-center justify-center rounded-[24px] border border-dashed border-[var(--border-soft)] bg-[var(--panel-3)] text-center">
+                <p className="mt-3 text-sm text-[var(--text-muted)]">Loading chart...</p>
               </div>
             ) : !salaryData?.salary ? (
-              <div className="flex h-full items-center justify-center rounded-[20px] border border-dashed border-[var(--border-soft)] bg-[var(--panel-3)] text-sm text-[var(--text-muted)]">
-                Save salary to unlock allocation comparison.
+              <div className="flex h-[290px] w-full flex-col items-center justify-center rounded-[24px] border border-dashed border-[var(--border-soft)] bg-[var(--panel-3)] text-center">
+                <div className="mb-3 rounded-full bg-[var(--panel-4)] p-3 text-[var(--text-muted)]">
+                  <Wallet size={24} />
+                </div>
+                <p className="text-sm font-medium text-[var(--text-primary)]">No budget set</p>
+                <p className="mt-1 max-w-[200px] text-xs text-[var(--text-muted)]">Save your salary to unlock allocation comparison.</p>
               </div>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
