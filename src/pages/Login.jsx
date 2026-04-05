@@ -281,11 +281,21 @@ function Login() {
                     <button
                       type="button"
                       onClick={() => setShowPassword((prev) => !prev)}
-                      className="shrink-0 text-[var(--text-muted)]"
+                      className="shrink-0 text-[var(--text-muted)] hover:text-[var(--text-primary)]"
                     >
                       {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                     </button>
                   </div>
+                  {!isRegister && (
+                    <div className="mt-2 text-right">
+                      <Link
+                        to="/forgot-password"
+                        className="text-xs font-medium text-[var(--accent)] hover:opacity-80"
+                      >
+                        Forgot your password?
+                      </Link>
+                    </div>
+                  )}
                 </div>
 
                 <button

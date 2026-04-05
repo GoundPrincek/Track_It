@@ -12,6 +12,8 @@ import Login from "./pages/Login";
 import Settings from "./pages/Settings";
 import Notifications from "./pages/Notifications";
 import Analytics from "./pages/Analytics";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 
 import {
   BrowserRouter,
@@ -398,6 +400,8 @@ function AppLayout() {
               element={<Landing theme={theme} setTheme={setTheme} />}
             />
             <Route path="/login" element={<Login />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password/:token" element={<ResetPassword />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </div>

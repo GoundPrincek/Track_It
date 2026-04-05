@@ -8,9 +8,7 @@ import {
   AlertCircle,
   FileUp,
 } from "lucide-react";
-
-const API_BASE =
-  import.meta.env.VITE_API_URL?.replace(/\/$/, "") || "http://localhost:5000";
+import { API_BASE } from "./config/api";
 
 const Upload = () => {
   const csvInputRef = useRef(null);
@@ -81,7 +79,7 @@ const Upload = () => {
       const formData = new FormData();
       formData.append("file", csvFile);
 
-      const response = await fetch(`${API_BASE}/api/upload/csv`, {
+      const response = await fetch(`${API_BASE}/upload/csv`, {
         method: "POST",
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: formData,
@@ -115,7 +113,7 @@ const Upload = () => {
       const formData = new FormData();
       formData.append("file", pdfFile);
 
-      const response = await fetch(`${API_BASE}/api/upload/pdf`, {
+      const response = await fetch(`${API_BASE}/upload/pdf`, {
         method: "POST",
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: formData,

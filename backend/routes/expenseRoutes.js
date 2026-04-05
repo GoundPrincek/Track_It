@@ -995,12 +995,62 @@ router.post("/import/save", async (req, res) => {
       });
     }
 
-    const savedExpenses = await Expense.insertMany(validTransactions);
+    const minDate = new Date(
+      Math.min(...validTransactions.map((t) => new Date(t.date).getTime()))
+    );
+    const maxDate = new Date(
+      Math.max(...validTransactions.map((t) => new Date(t.date).getTime()))
+    );
+
+    // Provide a small buffer for dates (e.g. 1 day padding)
+    minDate.setDate(minDate.getDate() - 1);
+    maxDate.setDate(maxDate.getDate() + 1);
+
+    const existingExpenses = await Expense.find({
+      user: userId,
+      date: { $gte: minDate, $lte: maxDate },
+    }).lean();
+
+    const existingSet = new Set(
+      existingExpenses.map(
+        (e) =>
+          `${e.title.toLowerCase()}_${e.amount}_${
+            new Date(e.date).toISOString().split("T")[0]
+          }`
+      )
+    );
+
+    const newTransactions = [];
+    const localSet = new Set(); 
+
+    for (const t of validTransactions) {
+      const key = `${t.title.toLowerCase()}_${t.amount}_${
+        new Date(t.date).toISOString().split("T")[0]
+      }`;
+      
+      if (!existingSet.has(key) && !localSet.has(key)) {
+        newTransactions.push(t);
+        localSet.add(key);
+      }
+    }
+
+    const skippedCount = validTransactions.length - newTransactions.length;
+
+    let savedExpenses = [];
+    if (newTransactions.length > 0) {
+      savedExpenses = await Expense.insertMany(newTransactions);
+    }
 
     return res.status(201).json({
-      message: "Imported expenses saved successfully",
+      message:
+        newTransactions.length > 0
+          ? `Saved ${newTransactions.length} new expenses${
+              skippedCount > 0 ? ` (skipped ${skippedCount} duplicates)` : ""
+            }.`
+          : `Skipped all ${skippedCount} transactions as they are already saved.`,
       expenses: savedExpenses,
       count: savedExpenses.length,
+      skipped: skippedCount,
     });
   } catch (err) {
     console.log("Save imported expenses error:", err);

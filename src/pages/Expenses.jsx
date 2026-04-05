@@ -1838,13 +1838,18 @@ function Expenses() {
             initial={{ opacity: 0.4 }}
             animate={{ opacity: 1 }}
             transition={{ repeat: Infinity, repeatType: "reverse", duration: 0.8 }}
-            className="rounded-[20px] border border-dashed border-[var(--border-soft)] bg-[var(--panel-3)] p-5 text-sm text-[var(--text-muted)] sm:p-6"
+            className="flex flex-col items-center justify-center rounded-[20px] border border-dashed border-[var(--border-soft)] bg-[var(--panel-3)] py-10 text-center"
           >
-            Loading expenses...
+            <div className="mb-3 h-8 w-8 animate-spin rounded-full border-4 border-[var(--border-soft)] border-t-[var(--accent)]"></div>
+            <p className="text-sm font-medium text-[var(--text-primary)]">Loading expenses...</p>
           </motion.div>
         ) : filteredExpenses.length === 0 ? (
-          <div className="rounded-[20px] border border-dashed border-[var(--border-soft)] bg-[var(--panel-3)] p-5 text-sm text-[var(--text-muted)] sm:p-6">
-            No expenses match your current search or filter.
+          <div className="flex flex-col items-center justify-center rounded-[20px] border border-dashed border-[var(--border-soft)] bg-[var(--panel-3)] py-10 text-center">
+            <div className="mb-3 rounded-full bg-[var(--panel-4)] p-3 text-[var(--text-muted)]">
+              <Search size={24} />
+            </div>
+            <p className="text-sm font-medium text-[var(--text-primary)]">No expenses found</p>
+            <p className="mt-1 max-w-[250px] text-xs text-[var(--text-muted)]">Try adjusting your filters, search query, or track a new expense above.</p>
           </div>
         ) : (
           <motion.div

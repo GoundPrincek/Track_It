@@ -3,8 +3,12 @@ const multer = require("multer");
 const csvParser = require("csv-parser");
 const pdfParse = require("pdf-parse");
 const { Readable } = require("stream");
+const protect = require("../middleware/authMiddleware");
 
 const router = express.Router();
+
+// All upload routes require authentication
+router.use(protect);
 
 const storage = multer.memoryStorage();
 
