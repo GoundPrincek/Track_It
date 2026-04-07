@@ -71,6 +71,23 @@ router.post("/", async (req, res) => {
   }
 });
 
+// PATCH — mark ALL notifications as read
+router.patch("/read-all", async (req, res) => {
+  try {
+    const userId = req.user.userId;
+
+    await Notification.updateMany(
+      { user: userId, isRead: false },
+      { isRead: true }
+    );
+
+    res.json({ message: "All notifications marked as read" });
+  } catch (err) {
+    console.log("Mark all read error:", err.message);
+    res.status(500).json({ message: "Failed to mark all notifications as read" });
+  }
+});
+
 // PATCH — mark a single notification as read
 router.patch("/:id/read", async (req, res) => {
   try {
@@ -93,20 +110,17 @@ router.patch("/:id/read", async (req, res) => {
   }
 });
 
-// PATCH — mark ALL notifications as read
-router.patch("/read-all", async (req, res) => {
+// DELETE — clear all notifications for user
+router.delete("/clear-all", async (req, res) => {
   try {
     const userId = req.user.userId;
 
-    await Notification.updateMany(
-      { user: userId, isRead: false },
-      { isRead: true }
-    );
+    await Notification.deleteMany({ user: userId });
 
-    res.json({ message: "All notifications marked as read" });
+    res.json({ message: "All notifications cleared" });
   } catch (err) {
-    console.log("Mark all read error:", err.message);
-    res.status(500).json({ message: "Failed to mark all notifications as read" });
+    console.log("Clear all notifications error:", err.message);
+    res.status(500).json({ message: "Failed to clear notifications" });
   }
 });
 
@@ -128,20 +142,6 @@ router.delete("/:id", async (req, res) => {
   } catch (err) {
     console.log("Delete notification error:", err.message);
     res.status(500).json({ message: "Failed to delete notification" });
-  }
-});
-
-// DELETE — clear all notifications for user
-router.delete("/clear-all", async (req, res) => {
-  try {
-    const userId = req.user.userId;
-
-    await Notification.deleteMany({ user: userId });
-
-    res.json({ message: "All notifications cleared" });
-  } catch (err) {
-    console.log("Clear all notifications error:", err.message);
-    res.status(500).json({ message: "Failed to clear notifications" });
   }
 });
 

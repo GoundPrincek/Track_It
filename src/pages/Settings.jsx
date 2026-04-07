@@ -44,22 +44,56 @@ function Settings({ theme = "dark", setTheme = () => {} }) {
   });
 
   const [saving, setSaving] = useState(false);
+  const [profileLoading, setProfileLoading] = useState(true);
   const [formMessage, setFormMessage] = useState({ type: "", text: "" });
 
   useEffect(() => {
-    const savedUser = localStorage.getItem("user");
-    try {
-      const parsed = savedUser ? JSON.parse(savedUser) : null;
-      setName(parsed?.name || "");
-      
-      const prefs = parsed?.preferences || {};
-      setEmailNotifications(prefs.emailNotifications ?? true);
-      setWhatsappNotifications(prefs.whatsappNotifications ?? false);
-      setWhatsappNumber(prefs.whatsappNumber || "");
-      setUrgentOnlyMode(prefs.urgentOnlyMode ?? false);
-    } catch {
-      setName("");
-    }
+    const fetchProfile = async () => {
+      try {
+        setProfileLoading(true);
+        const res = await axios.get(`${API_BASE}/auth/me`);
+        const user = res.data?.user || {};
+        const prefs = user.preferences || {};
+
+        setName(user.name || "");
+        setEmailNotifications(prefs.emailNotifications ?? true);
+        setWhatsappNotifications(prefs.whatsappNotifications ?? false);
+        setWhatsappNumber(prefs.whatsappNumber || "");
+        setUrgentOnlyMode(prefs.urgentOnlyMode ?? false);
+
+        try {
+          const savedUser = localStorage.getItem("user");
+          const parsed = savedUser ? JSON.parse(savedUser) : {};
+          localStorage.setItem(
+            "user",
+            JSON.stringify({
+              ...parsed,
+              ...user,
+            })
+          );
+        } catch {
+          // ignore localStorage sync errors
+        }
+      } catch (err) {
+        const savedUser = localStorage.getItem("user");
+        try {
+          const parsed = savedUser ? JSON.parse(savedUser) : null;
+          setName(parsed?.name || "");
+
+          const prefs = parsed?.preferences || {};
+          setEmailNotifications(prefs.emailNotifications ?? true);
+          setWhatsappNotifications(prefs.whatsappNotifications ?? false);
+          setWhatsappNumber(prefs.whatsappNumber || "");
+          setUrgentOnlyMode(prefs.urgentOnlyMode ?? false);
+        } catch {
+          setName("");
+        }
+      } finally {
+        setProfileLoading(false);
+      }
+    };
+
+    fetchProfile();
   }, []);
 
   useEffect(() => {
@@ -108,6 +142,8 @@ function Settings({ theme = "dark", setTheme = () => {} }) {
 
   const handleSaveSettings = async () => {
     const trimmedName = name.trim();
+    const cleanedWhatsapp = whatsappNumber.replace(/[^\d+]/g, "").trim();
+    const whatsappPattern = /^\+?\d{10,15}$/;
 
     if (!trimmedName) {
       setFormMessage({ type: "error", text: "Name cannot be empty" });
@@ -131,6 +167,22 @@ function Settings({ theme = "dark", setTheme = () => {} }) {
       return;
     }
 
+    if (whatsappNotifications && !cleanedWhatsapp) {
+      setFormMessage({
+        type: "error",
+        text: "Please enter a WhatsApp number to enable alerts",
+      });
+      return;
+    }
+
+    if (cleanedWhatsapp && !whatsappPattern.test(cleanedWhatsapp)) {
+      setFormMessage({
+        type: "error",
+        text: "Enter a valid WhatsApp number (10-15 digits, optional +)",
+      });
+      return;
+    }
+
     try {
       setSaving(true);
       setFormMessage({ type: "", text: "" });
@@ -140,7 +192,7 @@ function Settings({ theme = "dark", setTheme = () => {} }) {
         preferences: {
           emailNotifications,
           whatsappNotifications,
-          whatsappNumber: whatsappNumber.trim(),
+          whatsappNumber: cleanedWhatsapp,
           urgentOnlyMode
         }
       };
@@ -219,7 +271,7 @@ function Settings({ theme = "dark", setTheme = () => {} }) {
             </div>
 
             <h2 className="break-words text-xl font-semibold text-[var(--text-primary)] sm:text-2xl">
-              {name || "TrackIt User"}
+              {profileLoading ? "Loading profile..." : name || "TrackIt User"}
             </h2>
 
             <p className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">

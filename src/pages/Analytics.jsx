@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import axios from "axios";
 import { motion } from "framer-motion";
 import {
   BarChart3,
@@ -11,6 +10,7 @@ import {
   Target,
   Receipt,
   AlertTriangle,
+  RefreshCw,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -25,48 +25,47 @@ import {
   YAxis,
   CartesianGrid,
 } from "recharts";
-import { API_BASE } from "../config/api";
+import { fetchDashboardData } from "../services/dashboardData";
 
 function Analytics() {
   const [todos, setTodos] = useState([]);
   const [expenses, setExpenses] = useState([]);
   const [salaryData, setSalaryData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState(null);
+  const [isApiReachable, setIsApiReachable] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [tick, setTick] = useState(Date.now());
+
+  const fetchAll = async ({ force = false } = {}) => {
+    try {
+      if (force) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+      const data = await fetchDashboardData({ force });
+      setTodos(Array.isArray(data.todos) ? data.todos : []);
+      setExpenses(Array.isArray(data.expenses) ? data.expenses : []);
+      setSalaryData(data.salaryData || null);
+      setLastUpdated(data.fetchedAt || Date.now());
+      setIsApiReachable(Boolean(data.isApiReachable));
+    } catch (err) {
+      console.log("Analytics fetch error:", err);
+      setIsApiReachable(false);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchAll = async () => {
-      try {
-        setLoading(true);
-
-        const [todoRes, expenseRes, salaryRes] = await Promise.allSettled([
-          axios.get(`${API_BASE}/todos`),
-          axios.get(`${API_BASE}/expenses`),
-          axios.get(`${API_BASE}/salary`),
-        ]);
-
-        setTodos(
-          todoRes.status === "fulfilled" && Array.isArray(todoRes.value.data)
-            ? todoRes.value.data
-            : []
-        );
-
-        setExpenses(
-          expenseRes.status === "fulfilled" && Array.isArray(expenseRes.value.data)
-            ? expenseRes.value.data
-            : []
-        );
-
-        setSalaryData(
-          salaryRes.status === "fulfilled" ? salaryRes.value.data : null
-        );
-      } catch (err) {
-        console.log("Analytics fetch error:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchAll();
+  }, []);
+
+  useEffect(() => {
+    const timer = setInterval(() => setTick(Date.now()), 60000);
+    return () => clearInterval(timer);
   }, []);
 
   const formatCurrency = (value) => {
@@ -334,6 +333,22 @@ function Analytics() {
     transition: { duration: 0.45, ease: "easeOut" },
   };
 
+  const formattedLastUpdated = useMemo(() => {
+    if (!lastUpdated) return "Not synced yet";
+    return new Date(lastUpdated).toLocaleTimeString("en-IN", {
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  }, [lastUpdated]);
+
+  const relativeLastUpdated = useMemo(() => {
+    if (!lastUpdated) return "Waiting for first sync";
+    const diffMin = Math.max(0, Math.floor((tick - lastUpdated) / 60000));
+    if (diffMin === 0) return "just now";
+    if (diffMin === 1) return "1 min ago";
+    return `${diffMin} mins ago`;
+  }, [lastUpdated, tick]);
+
   return (
     <div className="space-y-5">
       <motion.section
@@ -355,6 +370,25 @@ function Analytics() {
               View a combined summary of salary allocation, spending behavior, and
               task execution using your current TrackIt data.
             </p>
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-[var(--text-muted)]">
+              <span>Last synced: {formattedLastUpdated} ({relativeLastUpdated})</span>
+              <span
+                className={`inline-flex items-center gap-2 rounded-full border px-2 py-0.5 ${
+                  isApiReachable
+                    ? "border-[var(--border-soft)] bg-[var(--status-success-bg)] text-[var(--status-success-text)]"
+                    : "border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger-text)]"
+                }`}
+              >
+                <span
+                  className={`h-2 w-2 rounded-full ${
+                    isApiReachable
+                      ? "bg-[var(--status-success-text)]"
+                      : "bg-[var(--danger-text)]"
+                  }`}
+                />
+                {isApiReachable ? "API reachable" : "API not reachable"}
+              </span>
+            </div>
           </div>
 
           <motion.div
@@ -378,6 +412,14 @@ function Analytics() {
                 ? "Preparing your analytics view."
                 : `Top expense category: ${topExpenseCategory?.label || "Not available"} · Average goal progress: ${analytics.averageProgress}%`}
             </p>
+            <button
+              type="button"
+              onClick={() => fetchAll({ force: true })}
+              className="mt-3 inline-flex items-center gap-2 rounded-xl border border-[var(--border-soft)] bg-[var(--panel-3)] px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] transition hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
+            >
+              <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
+              {refreshing ? "Refreshing..." : "Refresh now"}
+            </button>
           </motion.div>
         </div>
       </motion.section>
