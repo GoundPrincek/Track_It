@@ -852,8 +852,8 @@ router.post("/", async (req, res) => {
       user: userId,
       title: title.trim(),
       amount: Number(amount),
-      suggestedCategory: classifyTransaction(title),
-      category: category || "General",
+      suggestedCategory: classifyTransaction(title.trim()),
+      category: ALL_ALLOWED_CATEGORIES.includes(category) ? category : "General",
       date: date || Date.now(),
     });
 
@@ -969,10 +969,10 @@ router.post("/import/save", async (req, res) => {
         const title = String(item?.description || item?.title || "").trim();
         const amount = cleanAmount(item?.amount);
         const date = normalizeDate(item?.date);
-        const category = IMPORT_CATEGORIES.includes(item?.category)
+        const category = ALL_ALLOWED_CATEGORIES.includes(item?.category)
           ? item.category
           : "uncategorized";
-        const suggestedCategory = IMPORT_CATEGORIES.includes(item?.suggestedCategory)
+        const suggestedCategory = ALL_ALLOWED_CATEGORIES.includes(item?.suggestedCategory)
           ? item.suggestedCategory
           : classifyTransaction(title);
 

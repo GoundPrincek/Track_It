@@ -111,6 +111,23 @@ router.post("/login", async (req, res) => {
   }
 });
 
+// GET /api/auth/me
+router.get("/me", protect, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const user = await User.findById(userId).select("-password");
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    return res.status(200).json({ user: sanitizeUser(user) });
+  } catch (err) {
+    console.log("Get profile error:", err.message);
+    return res.status(500).json({ message: "Failed to fetch profile" });
+  }
+});
+
 // PUT /api/auth/profile — update name and/or password (protected)
 router.put("/profile", protect, async (req, res) => {
   try {

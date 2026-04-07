@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import axios from "axios";
 import {
   IndianRupee,
   Wallet,
@@ -22,13 +21,17 @@ import {
   ResponsiveContainer,
   Tooltip,
 } from "recharts";
-import { API_BASE } from "../config/api";
+import { fetchDashboardData } from "../services/dashboardData";
 
 function Dashboard() {
   const [salaryData, setSalaryData] = useState(null);
   const [expenses, setExpenses] = useState([]);
   const [todos, setTodos] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState(null);
+  const [isApiReachable, setIsApiReachable] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [tick, setTick] = useState(Date.now());
   const [chartPalette, setChartPalette] = useState({
     needs: "#2563EB",
     wants: "#D97706",
@@ -94,48 +97,40 @@ function Dashboard() {
     return () => observer.disconnect();
   }, []);
 
-  useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
+  const loadDashboardData = async ({ force = false } = {}) => {
+    try {
+      if (force) {
+        setRefreshing(true);
+      } else {
         setLoading(true);
-
-        const results = await Promise.allSettled([
-          axios.get(`${API_BASE}/salary`),
-          axios.get(`${API_BASE}/expenses`),
-          axios.get(`${API_BASE}/todos`),
-        ]);
-
-        const salaryRes = results[0];
-        const expenseRes = results[1];
-        const todoRes = results[2];
-
-        setSalaryData(
-          salaryRes.status === "fulfilled" ? salaryRes.value.data || null : null
-        );
-
-        setExpenses(
-          expenseRes.status === "fulfilled" &&
-            Array.isArray(expenseRes.value.data)
-            ? expenseRes.value.data
-            : []
-        );
-
-        setTodos(
-          todoRes.status === "fulfilled" && Array.isArray(todoRes.value.data)
-            ? todoRes.value.data
-            : []
-        );
-      } catch (err) {
-        console.log("Dashboard fetch error:", err);
-        setSalaryData(null);
-        setExpenses([]);
-        setTodos([]);
-      } finally {
-        setLoading(false);
       }
-    };
+      const data = await fetchDashboardData({ force });
+      setSalaryData(data.salaryData || null);
+      setExpenses(Array.isArray(data.expenses) ? data.expenses : []);
+      setTodos(Array.isArray(data.todos) ? data.todos : []);
+      setLastUpdated(data.fetchedAt || Date.now());
+      setIsApiReachable(Boolean(data.isApiReachable));
+    } catch (err) {
+      console.log("Dashboard fetch error:", err);
+      setSalaryData(null);
+      setExpenses([]);
+      setTodos([]);
+      setIsApiReachable(false);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
 
-    fetchDashboardData();
+  useEffect(() => {
+    loadDashboardData();
+  }, []);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTick(Date.now());
+    }, 60000);
+    return () => clearInterval(timer);
   }, []);
 
   const salaryAmount = Number(salaryData?.salary || 0);
@@ -309,6 +304,22 @@ function Dashboard() {
       ? "Moderate"
       : "Needs Attention";
 
+  const formattedLastUpdated = useMemo(() => {
+    if (!lastUpdated) return "Not synced yet";
+    return new Date(lastUpdated).toLocaleTimeString("en-IN", {
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  }, [lastUpdated]);
+
+  const relativeLastUpdated = useMemo(() => {
+    if (!lastUpdated) return "Waiting for first sync";
+    const diffMin = Math.max(0, Math.floor((tick - lastUpdated) / 60000));
+    if (diffMin === 0) return "just now";
+    if (diffMin === 1) return "1 min ago";
+    return `${diffMin} mins ago`;
+  }, [lastUpdated, tick]);
+
   const statCards = [
     {
       title: "Salary",
@@ -469,8 +480,27 @@ function Dashboard() {
               Manage your salary, expenses, daily goals, and execution momentum
               in one cleaner theme-aware workspace.
             </p>
+            <p className="mt-2 text-xs text-[var(--text-muted)]">
+              Last synced: {formattedLastUpdated} ({relativeLastUpdated})
+            </p>
 
             <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+              <span
+                className={`inline-flex w-full items-center justify-center gap-2 rounded-2xl border px-4 py-2.5 text-sm sm:w-auto ${
+                  isApiReachable
+                    ? "border-[var(--border-soft)] bg-[var(--status-success-bg)] text-[var(--status-success-text)]"
+                    : "border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger-text)]"
+                }`}
+              >
+                <span
+                  className={`h-2 w-2 rounded-full ${
+                    isApiReachable
+                      ? "bg-[var(--status-success-text)]"
+                      : "bg-[var(--danger-text)]"
+                  }`}
+                />
+                {isApiReachable ? "API reachable" : "API not reachable"}
+              </span>
               <motion.div
                 whileHover={{ y: -2, scale: 1.01 }}
                 className="theme-pill inline-flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-sm sm:w-auto sm:justify-start"
@@ -482,11 +512,11 @@ function Dashboard() {
               <motion.button
                 whileHover={{ y: -2, scale: 1.01 }}
                 whileTap={{ scale: 0.98 }}
-                onClick={() => window.location.reload()}
+                onClick={() => loadDashboardData({ force: true })}
                 className="theme-muted-btn inline-flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-medium transition hover:bg-[var(--panel-3)] sm:w-auto"
               >
-                <RefreshCw size={16} />
-                Refresh
+                <RefreshCw size={16} className={refreshing ? "animate-spin" : ""} />
+                {refreshing ? "Refreshing..." : "Refresh now"}
               </motion.button>
             </div>
           </div>

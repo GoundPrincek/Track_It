@@ -1,19 +1,18 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import axios from "axios";
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import Navbar from "./components/Navbar";
 import ProtectedRoute from "./components/ProtectedRoute";
 
-import Landing from "./pages/Landing";
-import Dashboard from "./pages/Dashboard";
-import Salary from "./pages/Salary";
-import Expenses from "./pages/Expenses";
-import Todo from "./pages/Todo";
-import Login from "./pages/Login";
-import Settings from "./pages/Settings";
-import Notifications from "./pages/Notifications";
-import Analytics from "./pages/Analytics";
-import ForgotPassword from "./pages/ForgotPassword";
-import ResetPassword from "./pages/ResetPassword";
+const Landing = lazy(() => import("./pages/Landing"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Salary = lazy(() => import("./pages/Salary"));
+const Expenses = lazy(() => import("./pages/Expenses"));
+const Todo = lazy(() => import("./pages/Todo"));
+const Login = lazy(() => import("./pages/Login"));
+const Settings = lazy(() => import("./pages/Settings"));
+const Notifications = lazy(() => import("./pages/Notifications"));
+const Analytics = lazy(() => import("./pages/Analytics"));
+const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 
 import {
   BrowserRouter,
@@ -22,12 +21,20 @@ import {
   useLocation,
   Navigate,
 } from "react-router-dom";
-import { API_BASE } from "./config/api";
+import { fetchDashboardData } from "./services/dashboardData";
 import { Bell, Clock3, AlertTriangle, Wallet, Receipt } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 const REFRESH_INTERVAL_MS = 60000;
 const TOAST_DURATION_MS = 5000;
+
+const RouteFallback = () => (
+  <div className="relative mx-auto w-full max-w-[1600px]">
+    <div className="rounded-[22px] border border-[var(--border-soft)] bg-[var(--shell-bg)] p-4 shadow-[var(--shadow-shell)] sm:rounded-[24px] sm:p-5 md:rounded-[28px] md:p-6">
+      <div className="theme-surface-2 h-28 animate-pulse rounded-[20px]" />
+    </div>
+  </div>
+);
 
 const formatCurrency = (value) => {
   return new Intl.NumberFormat("en-IN", {
@@ -226,26 +233,8 @@ function AppLayout() {
 
     const fetchLiveNotificationData = async () => {
       try {
-        const [todoRes, expenseRes, salaryRes] = await Promise.allSettled([
-          axios.get(`${API_BASE}/todos`),
-          axios.get(`${API_BASE}/expenses`),
-          axios.get(`${API_BASE}/salary`),
-        ]);
-
         if (!isMounted) return;
-
-        const todos =
-          todoRes.status === "fulfilled" && Array.isArray(todoRes.value.data)
-            ? todoRes.value.data
-            : [];
-
-        const expenses =
-          expenseRes.status === "fulfilled" && Array.isArray(expenseRes.value.data)
-            ? expenseRes.value.data
-            : [];
-
-        const salaryData =
-          salaryRes.status === "fulfilled" ? salaryRes.value.data || null : null;
+        const { todos, expenses, salaryData } = await fetchDashboardData();
 
         const nextNotifications = buildLiveNotifications({
           todos,
@@ -394,89 +383,93 @@ function AppLayout() {
 
       {hideNavbar ? (
         <div className="relative">
-          <Routes>
-            <Route
-              path="/"
-              element={<Landing theme={theme} setTheme={setTheme} />}
-            />
-            <Route path="/login" element={<Login />} />
-            <Route path="/forgot-password" element={<ForgotPassword />} />
-            <Route path="/reset-password/:token" element={<ResetPassword />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+          <Suspense fallback={<RouteFallback />}>
+            <Routes>
+              <Route
+                path="/"
+                element={<Landing theme={theme} setTheme={setTheme} />}
+              />
+              <Route path="/login" element={<Login />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password/:token" element={<ResetPassword />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </Suspense>
         </div>
       ) : (
         <main className="relative w-full px-2 py-3 sm:px-3 sm:py-4 md:px-5 md:py-6 xl:px-6">
-          <div className="mx-auto w-full max-w-[1600px]">
-            <div className="rounded-[22px] border border-[var(--border-soft)] bg-[var(--shell-bg)] p-2 shadow-[var(--shadow-shell)] backdrop-blur-xl sm:rounded-[24px] sm:p-3 md:rounded-[28px] md:p-5">
-              <Routes>
-                <Route
-                  path="/dashboard"
-                  element={
-                    <ProtectedRoute>
-                      <Dashboard />
-                    </ProtectedRoute>
-                  }
-                />
+          <Suspense fallback={<RouteFallback />}>
+            <div className="mx-auto w-full max-w-[1600px]">
+              <div className="rounded-[22px] border border-[var(--border-soft)] bg-[var(--shell-bg)] p-2 shadow-[var(--shadow-shell)] backdrop-blur-xl sm:rounded-[24px] sm:p-3 md:rounded-[28px] md:p-5">
+                <Routes>
+                  <Route
+                    path="/dashboard"
+                    element={
+                      <ProtectedRoute>
+                        <Dashboard />
+                      </ProtectedRoute>
+                    }
+                  />
 
-                <Route
-                  path="/salary"
-                  element={
-                    <ProtectedRoute>
-                      <Salary />
-                    </ProtectedRoute>
-                  }
-                />
+                  <Route
+                    path="/salary"
+                    element={
+                      <ProtectedRoute>
+                        <Salary />
+                      </ProtectedRoute>
+                    }
+                  />
 
-                <Route
-                  path="/expenses"
-                  element={
-                    <ProtectedRoute>
-                      <Expenses />
-                    </ProtectedRoute>
-                  }
-                />
+                  <Route
+                    path="/expenses"
+                    element={
+                      <ProtectedRoute>
+                        <Expenses />
+                      </ProtectedRoute>
+                    }
+                  />
 
-                <Route
-                  path="/todo"
-                  element={
-                    <ProtectedRoute>
-                      <Todo />
-                    </ProtectedRoute>
-                  }
-                />
+                  <Route
+                    path="/todo"
+                    element={
+                      <ProtectedRoute>
+                        <Todo />
+                      </ProtectedRoute>
+                    }
+                  />
 
-                <Route
-                  path="/settings"
-                  element={
-                    <ProtectedRoute>
-                      <Settings theme={theme} setTheme={setTheme} />
-                    </ProtectedRoute>
-                  }
-                />
+                  <Route
+                    path="/settings"
+                    element={
+                      <ProtectedRoute>
+                        <Settings theme={theme} setTheme={setTheme} />
+                      </ProtectedRoute>
+                    }
+                  />
 
-                <Route
-                  path="/notifications"
-                  element={
-                    <ProtectedRoute>
-                      <Notifications />
-                    </ProtectedRoute>
-                  }
-                />
+                  <Route
+                    path="/notifications"
+                    element={
+                      <ProtectedRoute>
+                        <Notifications />
+                      </ProtectedRoute>
+                    }
+                  />
 
-                <Route
-                  path="/analytics"
-                  element={
-                    <ProtectedRoute>
-                      <Analytics />
-                    </ProtectedRoute>
-                  }
-                />
+                  <Route
+                    path="/analytics"
+                    element={
+                      <ProtectedRoute>
+                        <Analytics />
+                      </ProtectedRoute>
+                    }
+                  />
 
-                <Route path="*" element={<Navigate to="/dashboard" replace />} />
-              </Routes>
+                  <Route path="*" element={<Navigate to="/dashboard" replace />} />
+                </Routes>
+              </div>
             </div>
-          </div>
+          </Suspense>
         </main>
       )}
     </div>
