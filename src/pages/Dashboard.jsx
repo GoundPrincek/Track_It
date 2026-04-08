@@ -12,6 +12,7 @@ import {
   Sparkles,
   AlertTriangle,
   Coffee,
+  Receipt,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import {
@@ -104,7 +105,9 @@ function Dashboard() {
       } else {
         setLoading(true);
       }
+
       const data = await fetchDashboardData({ force });
+
       setSalaryData(data.salaryData || null);
       setExpenses(Array.isArray(data.expenses) ? data.expenses : []);
       setTodos(Array.isArray(data.todos) ? data.todos : []);
@@ -130,6 +133,7 @@ function Dashboard() {
     const timer = setInterval(() => {
       setTick(Date.now());
     }, 60000);
+
     return () => clearInterval(timer);
   }, []);
 
@@ -142,21 +146,25 @@ function Dashboard() {
   const currentYear = new Date().getFullYear();
 
   const currentMonthExpenses = useMemo(() => {
-    return expenses.filter(expense => {
+    return expenses.filter((expense) => {
       const d = new Date(expense.date || expense.createdAt);
       return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
     });
   }, [expenses, currentMonth, currentYear]);
 
   const currentMonthTodos = useMemo(() => {
-    return todos.filter(todo => {
+    return todos.filter((todo) => {
       const d = new Date(todo.workDate || todo.createdAt);
       return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
     });
   }, [todos, currentMonth, currentYear]);
 
   const totalExpenses = useMemo(
-    () => currentMonthExpenses.reduce((sum, item) => sum + Number(item.amount || 0), 0),
+    () =>
+      currentMonthExpenses.reduce(
+        (sum, item) => sum + Number(item.amount || 0),
+        0
+      ),
     [currentMonthExpenses]
   );
 
@@ -186,10 +194,13 @@ function Dashboard() {
 
   const remainingWants = Math.max(0, wants - (categorizedSummary.want || 0));
   const safeToSpendDaily = remainingWants / daysLeftInMonth;
-  
-  const needsPercent = needs > 0 ? Math.min(100, (categorizedSummary.need / needs) * 100) : 0;
-  const wantsPercent = wants > 0 ? Math.min(100, (categorizedSummary.want / wants) * 100) : 0;
-  const savingsPercent = savings > 0 ? Math.min(100, (categorizedSummary.saving / savings) * 100) : 0;
+
+  const needsPercent =
+    needs > 0 ? Math.min(100, (categorizedSummary.need / needs) * 100) : 0;
+  const wantsPercent =
+    wants > 0 ? Math.min(100, (categorizedSummary.want / wants) * 100) : 0;
+  const savingsPercent =
+    savings > 0 ? Math.min(100, (categorizedSummary.saving / savings) * 100) : 0;
 
   const chartData = useMemo(() => {
     return [
@@ -231,8 +242,12 @@ function Dashboard() {
 
   const remainingBalance = salaryAmount - totalExpenses;
 
-  const completedGoals = currentMonthTodos.filter((t) => Number(t.progress) >= 100).length;
-  const pendingGoals = currentMonthTodos.filter((t) => Number(t.progress) === 0).length;
+  const completedGoals = currentMonthTodos.filter(
+    (t) => Number(t.progress) >= 100
+  ).length;
+  const pendingGoals = currentMonthTodos.filter(
+    (t) => Number(t.progress) === 0
+  ).length;
   const inProgressGoals = currentMonthTodos.filter(
     (t) => Number(t.progress) > 0 && Number(t.progress) < 100
   ).length;
@@ -245,7 +260,10 @@ function Dashboard() {
     currentMonthTodos.filter((t) => Number(t.productivityScore) > 0).length === 0
       ? 0
       : (
-          currentMonthTodos.reduce((sum, t) => sum + Number(t.productivityScore || 0), 0) /
+          currentMonthTodos.reduce(
+            (sum, t) => sum + Number(t.productivityScore || 0),
+            0
+          ) /
           currentMonthTodos.filter((t) => Number(t.productivityScore) > 0).length
         ).toFixed(1);
 
@@ -273,16 +291,26 @@ function Dashboard() {
   }, [currentMonthExpenses]);
 
   const smartInsight = useMemo(() => {
-    if (!salaryAmount)
+    if (!salaryAmount) {
       return "Add your salary to unlock full dashboard insights.";
-    if (totalExpenses > salaryAmount)
+    }
+
+    if (totalExpenses > salaryAmount) {
       return "You are overspending compared to your salary.";
-    if (pendingGoals > completedGoals)
+    }
+
+    if (pendingGoals > completedGoals) {
       return "You have many pending goals. Focus on your highest-priority task.";
-    if (Number(averageProductivity) >= 8)
+    }
+
+    if (Number(averageProductivity) >= 8) {
       return "Excellent productivity trend. Keep following your daily timeline.";
-    if (remainingBalance > 0)
+    }
+
+    if (remainingBalance > 0) {
       return "Your balance is healthy. Try to protect your savings target.";
+    }
+
     return "Track daily activity to get smarter finance and productivity insights.";
   }, [
     salaryAmount,
@@ -306,6 +334,7 @@ function Dashboard() {
 
   const formattedLastUpdated = useMemo(() => {
     if (!lastUpdated) return "Not synced yet";
+
     return new Date(lastUpdated).toLocaleTimeString("en-IN", {
       hour: "numeric",
       minute: "2-digit",
@@ -314,9 +343,12 @@ function Dashboard() {
 
   const relativeLastUpdated = useMemo(() => {
     if (!lastUpdated) return "Waiting for first sync";
+
     const diffMin = Math.max(0, Math.floor((tick - lastUpdated) / 60000));
+
     if (diffMin === 0) return "just now";
     if (diffMin === 1) return "1 min ago";
+
     return `${diffMin} mins ago`;
   }, [lastUpdated, tick]);
 
@@ -327,8 +359,7 @@ function Dashboard() {
       subtitle: "Monthly income",
       icon: IndianRupee,
       valueClass: "text-[var(--color-accent)]",
-      iconSurface:
-        "bg-[var(--status-neutral-bg)] text-[var(--color-accent)]",
+      iconSurface: "bg-[var(--status-neutral-bg)] text-[var(--color-accent)]",
     },
     {
       title: "Expenses",
@@ -336,8 +367,7 @@ function Dashboard() {
       subtitle: "Tracked spending",
       icon: Wallet,
       valueClass: "text-[var(--color-wants)]",
-      iconSurface:
-        "bg-[var(--status-warm-bg)] text-[var(--status-warm-text)]",
+      iconSurface: "bg-[var(--status-warm-bg)] text-[var(--status-warm-text)]",
     },
     {
       title: "Balance",
@@ -359,8 +389,7 @@ function Dashboard() {
       subtitle: "Tasks scheduled today",
       icon: CalendarDays,
       valueClass: "text-[var(--text-primary)]",
-      iconSurface:
-        "bg-[var(--status-neutral-bg)] text-[var(--text-primary)]",
+      iconSurface: "bg-[var(--status-neutral-bg)] text-[var(--text-primary)]",
     },
     {
       title: "Avg Score",
@@ -368,8 +397,7 @@ function Dashboard() {
       subtitle: "Productivity average",
       icon: CheckCircle2,
       valueClass: "text-[var(--status-warm-text)]",
-      iconSurface:
-        "bg-[var(--status-warm-bg)] text-[var(--status-warm-text)]",
+      iconSurface: "bg-[var(--status-warm-bg)] text-[var(--status-warm-text)]",
     },
   ];
 
@@ -480,6 +508,7 @@ function Dashboard() {
               Manage your salary, expenses, daily goals, and execution momentum
               in one cleaner theme-aware workspace.
             </p>
+
             <p className="mt-2 text-xs text-[var(--text-muted)]">
               Last synced: {formattedLastUpdated} ({relativeLastUpdated})
             </p>
@@ -501,6 +530,7 @@ function Dashboard() {
                 />
                 {isApiReachable ? "API reachable" : "API not reachable"}
               </span>
+
               <motion.div
                 whileHover={{ y: -2, scale: 1.01 }}
                 className="theme-pill inline-flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-sm sm:w-auto sm:justify-start"
@@ -525,7 +555,7 @@ function Dashboard() {
             <motion.div
               whileHover={cardHover}
               className={`rounded-[22px] p-4 sm:rounded-[24px] sm:p-5 ${
-                remainingWants === 0 
+                remainingWants === 0
                   ? "bg-[var(--danger-bg)] text-[var(--danger-text)] border border-[var(--danger-border)]"
                   : "theme-surface"
               }`}
@@ -534,17 +564,29 @@ function Dashboard() {
                 <Coffee size={14} />
                 Safe-to-Spend Daily
               </div>
-              
+
               <h2 className="text-base font-semibold leading-7 sm:text-lg md:text-xl">
-                {wants === 0 ? "Set salary to unlock" : remainingWants === 0 ? "Budget Exhausted" : `${formatCurrency(safeToSpendDaily)} / day`}
+                {wants === 0
+                  ? "Set salary to unlock"
+                  : remainingWants === 0
+                  ? "Budget Exhausted"
+                  : `${formatCurrency(safeToSpendDaily)} / day`}
               </h2>
-              
-              <p className={`mt-2 text-sm leading-6 opacity-90 ${wants > 0 && remainingWants === 0 ? "text-[var(--danger-text)]" : "text-[var(--text-secondary)]"}`}>
-                {wants === 0 
+
+              <p
+                className={`mt-2 text-sm leading-6 opacity-90 ${
+                  wants > 0 && remainingWants === 0
+                    ? "text-[var(--danger-text)]"
+                    : "text-[var(--text-secondary)]"
+                }`}
+              >
+                {wants === 0
                   ? "Track your remaining 'Wants' allowance here."
-                  : remainingWants === 0 
+                  : remainingWants === 0
                   ? "You have exhausted your active 30% Wants limit for this month."
-                  : `You have ${formatCurrency(remainingWants)} left across ${daysLeftInMonth} days.`}
+                  : `You have ${formatCurrency(
+                      remainingWants
+                    )} left across ${daysLeftInMonth} days.`}
               </p>
             </motion.div>
 
@@ -635,21 +677,36 @@ function Dashboard() {
             >
               <div className="flex justify-between items-end">
                 <div>
-                  <p className="text-sm text-[var(--text-secondary)]">Needs Budget</p>
+                  <p className="text-sm text-[var(--text-secondary)]">
+                    Needs Budget
+                  </p>
                   <h3 className="mt-1 text-lg font-semibold text-[var(--color-needs)] sm:text-xl">
-                    {formatCurrency(categorizedSummary.need || 0)} <span className="text-sm font-medium text-[var(--text-muted)]">/ {formatCurrency(needs)}</span>
+                    {formatCurrency(categorizedSummary.need || 0)}{" "}
+                    <span className="text-sm font-medium text-[var(--text-muted)]">
+                      / {formatCurrency(needs)}
+                    </span>
                   </h3>
                 </div>
-                <p className={`text-xs font-medium ${needsPercent >= 90 ? 'text-[var(--danger-text)] animate-pulse' : 'text-[var(--text-muted)]'}`}>
+                <p
+                  className={`text-xs font-medium ${
+                    needsPercent >= 90
+                      ? "text-[var(--danger-text)] animate-pulse"
+                      : "text-[var(--text-muted)]"
+                  }`}
+                >
                   {needsPercent.toFixed(0)}%
                 </p>
               </div>
-              <div className="mt-3 h-2 w-full rounded-full bg-[var(--panel-4)] overflow-hidden">
-                <motion.div 
+              <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-[var(--panel-4)]">
+                <motion.div
                   initial={{ width: 0 }}
                   animate={{ width: `${needsPercent}%` }}
                   transition={{ duration: 1, ease: "easeOut" }}
-                  className={`h-full rounded-full ${needsPercent >= 90 ? 'bg-[var(--danger-text)]' : 'bg-[var(--color-needs)]'}`}
+                  className={`h-full rounded-full ${
+                    needsPercent >= 90
+                      ? "bg-[var(--danger-text)]"
+                      : "bg-[var(--color-needs)]"
+                  }`}
                 />
               </div>
             </motion.div>
@@ -660,21 +717,36 @@ function Dashboard() {
             >
               <div className="flex justify-between items-end">
                 <div>
-                  <p className="text-sm text-[var(--text-secondary)]">Wants Budget</p>
+                  <p className="text-sm text-[var(--text-secondary)]">
+                    Wants Budget
+                  </p>
                   <h3 className="mt-1 text-lg font-semibold text-[var(--color-wants)] sm:text-xl">
-                    {formatCurrency(categorizedSummary.want || 0)} <span className="text-sm font-medium text-[var(--text-muted)]">/ {formatCurrency(wants)}</span>
+                    {formatCurrency(categorizedSummary.want || 0)}{" "}
+                    <span className="text-sm font-medium text-[var(--text-muted)]">
+                      / {formatCurrency(wants)}
+                    </span>
                   </h3>
                 </div>
-                <p className={`text-xs font-medium ${wantsPercent >= 90 ? 'text-[var(--danger-text)] animate-pulse' : 'text-[var(--text-muted)]'}`}>
+                <p
+                  className={`text-xs font-medium ${
+                    wantsPercent >= 90
+                      ? "text-[var(--danger-text)] animate-pulse"
+                      : "text-[var(--text-muted)]"
+                  }`}
+                >
                   {wantsPercent.toFixed(0)}%
                 </p>
               </div>
-              <div className="mt-3 h-2 w-full rounded-full bg-[var(--panel-4)] overflow-hidden">
-                <motion.div 
+              <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-[var(--panel-4)]">
+                <motion.div
                   initial={{ width: 0 }}
                   animate={{ width: `${wantsPercent}%` }}
                   transition={{ duration: 1, ease: "easeOut" }}
-                  className={`h-full rounded-full ${wantsPercent >= 90 ? 'bg-[var(--danger-text)]' : 'bg-[var(--color-wants)]'}`}
+                  className={`h-full rounded-full ${
+                    wantsPercent >= 90
+                      ? "bg-[var(--danger-text)]"
+                      : "bg-[var(--color-wants)]"
+                  }`}
                 />
               </div>
             </motion.div>
@@ -683,19 +755,24 @@ function Dashboard() {
               whileHover={{ x: 4 }}
               className="theme-surface-3 rounded-[20px] p-4"
             >
-               <div className="flex justify-between items-end">
+              <div className="flex justify-between items-end">
                 <div>
-                  <p className="text-sm text-[var(--text-secondary)]">Savings Target</p>
+                  <p className="text-sm text-[var(--text-secondary)]">
+                    Savings Target
+                  </p>
                   <h3 className="mt-1 text-lg font-semibold text-[var(--color-savings)] sm:text-xl">
-                    {formatCurrency(categorizedSummary.saving || 0)} <span className="text-sm font-medium text-[var(--text-muted)]">/ {formatCurrency(savings)}</span>
+                    {formatCurrency(categorizedSummary.saving || 0)}{" "}
+                    <span className="text-sm font-medium text-[var(--text-muted)]">
+                      / {formatCurrency(savings)}
+                    </span>
                   </h3>
                 </div>
                 <p className="text-xs font-medium text-[var(--text-muted)]">
                   {savingsPercent.toFixed(0)}%
                 </p>
               </div>
-              <div className="mt-3 h-2 w-full rounded-full bg-[var(--panel-4)] overflow-hidden">
-                <motion.div 
+              <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-[var(--panel-4)]">
+                <motion.div
                   initial={{ width: 0 }}
                   animate={{ width: `${savingsPercent}%` }}
                   transition={{ duration: 1, ease: "easeOut" }}
@@ -740,7 +817,9 @@ function Dashboard() {
               whileHover={{ y: -3 }}
               className="theme-surface-3 rounded-[20px] p-4"
             >
-              <p className="text-sm text-[var(--text-secondary)]">In Progress</p>
+              <p className="text-sm text-[var(--text-secondary)]">
+                In Progress
+              </p>
               <h3 className="mt-1 text-lg font-semibold text-[var(--status-warm-text)]">
                 {inProgressGoals}
               </h3>
@@ -762,7 +841,9 @@ function Dashboard() {
               whileHover={{ y: -3 }}
               className="theme-surface-3 rounded-[20px] p-4"
             >
-              <p className="text-sm text-[var(--text-secondary)]">Top Category</p>
+              <p className="text-sm text-[var(--text-secondary)]">
+                Top Category
+              </p>
               <h3 className="mt-1 break-words text-lg font-semibold text-[var(--text-primary)]">
                 {topCategory}
               </h3>
@@ -836,8 +917,12 @@ function Dashboard() {
               <div className="mb-3 rounded-full bg-[var(--panel-4)] p-3 text-[var(--text-muted)]">
                 <Receipt size={24} />
               </div>
-              <p className="text-sm font-medium text-[var(--text-primary)]">No expenses this month</p>
-              <p className="mt-1 text-xs text-[var(--text-muted)]">Track your first expense to see recent activity.</p>
+              <p className="text-sm font-medium text-[var(--text-primary)]">
+                No expenses this month
+              </p>
+              <p className="mt-1 text-xs text-[var(--text-muted)]">
+                Track your first expense to see recent activity.
+              </p>
             </div>
           ) : (
             <motion.div variants={containerVariants} className="space-y-3">
@@ -907,8 +992,12 @@ function Dashboard() {
               <div className="mb-3 rounded-full bg-[var(--panel-4)] p-3 text-[var(--text-muted)]">
                 <Target size={24} />
               </div>
-              <p className="text-sm font-medium text-[var(--text-primary)]">No category data</p>
-              <p className="mt-1 max-w-[200px] text-xs text-[var(--text-muted)]">Add needs, wants, or savings expenses this month to see your chart.</p>
+              <p className="text-sm font-medium text-[var(--text-primary)]">
+                No category data
+              </p>
+              <p className="mt-1 max-w-[200px] text-xs text-[var(--text-muted)]">
+                Add needs, wants, or savings expenses this month to see your chart.
+              </p>
             </div>
           ) : (
             <div className="grid gap-4 lg:grid-cols-[0.95fr_1.05fr]">
@@ -917,7 +1006,9 @@ function Dashboard() {
                 <div className="absolute inset-x-8 bottom-4 h-8 rounded-full bg-black/10 blur-xl" />
 
                 <motion.div
-                  key={`${chartData.map((item) => item.value).join("-")}-${chartTotal}`}
+                  key={`${chartData
+                    .map((item) => item.value)
+                    .join("-")}-${chartTotal}`}
                   animate={{ rotate: 360 }}
                   transition={{
                     duration: 14,
