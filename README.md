@@ -5,8 +5,8 @@
 
 A full-stack MERN platform that brings **salary planning, expense tracking, smart budgeting, goals, todos, alerts, and analytics** into one modern workspace.
 
-[![Live Demo]](https://trackit2-nine.vercel.app/)
-[![Repository]](https://github.com/GoundPrincek/Track_It)
+[![Live Demo](https://img.shields.io/badge/Live-Demo-7C3AED?style=for-the-badge&logo=vercel&logoColor=white)](https://trackit2-nine.vercel.app/)
+[![Repository](https://img.shields.io/badge/GitHub-Repository-111827?style=for-the-badge&logo=github)](https://github.com/GoundPrincek/Track_It)
 [![Status](https://img.shields.io/badge/Status-In_Development-8B5CF6?style=for-the-badge)]()
 [![Backend](https://img.shields.io/badge/Backend-85--90%25-10B981?style=for-the-badge)]()
 [![Frontend](https://img.shields.io/badge/Frontend-60--70%25-3B82F6?style=for-the-badge)]()
