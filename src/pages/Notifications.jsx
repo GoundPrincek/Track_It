@@ -28,6 +28,9 @@ function Notifications() {
   const [activeFilter, setActiveFilter] = useState("all");
   const [currentTime, setCurrentTime] = useState(new Date());
 
+  // NEW: popup state for expense warning
+  const [budgetPopup, setBudgetPopup] = useState(null);
+
   const todayDate = useMemo(
     () => currentTime.toISOString().split("T")[0],
     [currentTime]
@@ -40,7 +43,9 @@ function Notifications() {
       } else {
         setLoading(true);
       }
+
       const data = await fetchDashboardData({ force });
+
       setTodos(Array.isArray(data.todos) ? data.todos : []);
       setExpenses(Array.isArray(data.expenses) ? data.expenses : []);
       setSalaryData(data.salaryData || null);
@@ -70,6 +75,7 @@ function Notifications() {
 
   const formattedLastUpdated = useMemo(() => {
     if (!lastUpdated) return "Not synced yet";
+
     return new Date(lastUpdated).toLocaleTimeString("en-IN", {
       hour: "numeric",
       minute: "2-digit",
@@ -78,9 +84,12 @@ function Notifications() {
 
   const relativeLastUpdated = useMemo(() => {
     if (!lastUpdated) return "Waiting for first sync";
+
     const diffMin = Math.max(0, Math.floor((tick - lastUpdated) / 60000));
+
     if (diffMin === 0) return "just now";
     if (diffMin === 1) return "1 min ago";
+
     return `${diffMin} mins ago`;
   }, [lastUpdated, tick]);
 
@@ -106,6 +115,7 @@ function Notifications() {
   const getTodoSessionStart = (todo) => {
     if (todo?.sessionStartedAt) {
       const storedStart = new Date(todo.sessionStartedAt);
+
       if (!Number.isNaN(storedStart.getTime())) {
         return storedStart;
       }
@@ -114,6 +124,7 @@ function Notifications() {
     if (!todo?.workDate || !todo?.startTime) return null;
 
     const scheduledStart = new Date(`${todo.workDate}T${todo.startTime}`);
+
     if (Number.isNaN(scheduledStart.getTime())) return null;
 
     return scheduledStart;
@@ -147,10 +158,15 @@ function Notifications() {
 
   const summary = useMemo(() => {
     const totalGoals = todos.length;
-    const completedGoals = todos.filter((t) => Number(t.progress) >= 100).length;
+
+    const completedGoals = todos.filter(
+      (t) => Number(t.progress) >= 100
+    ).length;
+
     const pendingToday = todos.filter(
       (t) => t.workDate === todayDate && Number(t.progress) < 100
     );
+
     const overdueGoals = todos.filter(
       (t) =>
         t.deadline &&
@@ -223,12 +239,15 @@ function Notifications() {
       .filter((todo) => Number(todo.progress) < 100)
       .map((todo) => {
         const sessionStart = getTodoSessionStart(todo);
+
         if (!sessionStart) return null;
 
         const diffMs = currentTime.getTime() - sessionStart.getTime();
+
         if (diffMs < 60 * 60 * 1000) return null;
 
         const elapsedHours = Math.floor(diffMs / (60 * 60 * 1000));
+
         if (elapsedHours < 1) return null;
 
         return {
@@ -270,6 +289,35 @@ function Notifications() {
       });
     });
 
+    // NEW: wants near-limit warning at 80%
+    if (
+      wantsLimit > 0 &&
+      wantsSpent >= wantsLimit * 0.8 &&
+      wantsSpent <= wantsLimit
+    ) {
+      const remaining = wantsLimit - wantsSpent;
+      const severityMeta = getSeverityMeta("medium");
+
+      generated.push({
+        id: "wants-near-limit",
+        type: "finance",
+        group: "warnings",
+        severity: "medium",
+        title: "Warning: wants spending is near limit",
+        message: `Your wants spending is close to the limit. Only ${formatCurrency(
+          remaining
+        )} is left.`,
+        detail: `Spent ${formatCurrency(wantsSpent)} out of ${formatCurrency(
+          wantsLimit
+        )}.`,
+        icon: AlertTriangle,
+        iconSurface: severityMeta.iconSurface,
+        badgeClass: severityMeta.badgeClass,
+        timeLabel: "Budget warning",
+        popup: true,
+      });
+    }
+
     if (wantsLimit > 0 && wantsSpent > wantsLimit) {
       const overBy = wantsSpent - wantsLimit;
       const severity = overBy >= wantsLimit * 0.25 ? "high" : "medium";
@@ -291,6 +339,36 @@ function Notifications() {
         iconSurface: severityMeta.iconSurface,
         badgeClass: severityMeta.badgeClass,
         timeLabel: "Finance alert",
+        popup: true,
+      });
+    }
+
+    // NEW: needs near-limit warning at 80%
+    if (
+      needsLimit > 0 &&
+      needsSpent >= needsLimit * 0.8 &&
+      needsSpent <= needsLimit
+    ) {
+      const remaining = needsLimit - needsSpent;
+      const severityMeta = getSeverityMeta("medium");
+
+      generated.push({
+        id: "needs-near-limit",
+        type: "finance",
+        group: "warnings",
+        severity: "medium",
+        title: "Warning: needs spending is near limit",
+        message: `Your needs spending is close to the limit. Only ${formatCurrency(
+          remaining
+        )} is left.`,
+        detail: `Spent ${formatCurrency(needsSpent)} out of ${formatCurrency(
+          needsLimit
+        )}.`,
+        icon: AlertTriangle,
+        iconSurface: severityMeta.iconSurface,
+        badgeClass: severityMeta.badgeClass,
+        timeLabel: "Budget warning",
+        popup: true,
       });
     }
 
@@ -315,6 +393,7 @@ function Notifications() {
         iconSurface: severityMeta.iconSurface,
         badgeClass: severityMeta.badgeClass,
         timeLabel: "Finance alert",
+        popup: true,
       });
     }
 
@@ -352,13 +431,14 @@ function Notifications() {
         message: `Your total tracked expenses are ${formatCurrency(
           totalSpent - salaryAmount
         )} above your saved salary.`,
-        detail: `Total spent ${formatCurrency(totalSpent)} vs salary ${formatCurrency(
-          salaryAmount
-        )}.`,
+        detail: `Total spent ${formatCurrency(
+          totalSpent
+        )} vs salary ${formatCurrency(salaryAmount)}.`,
         icon: ShieldAlert,
         iconSurface: severityMeta.iconSurface,
         badgeClass: severityMeta.badgeClass,
         timeLabel: "Critical finance alert",
+        popup: true,
       });
     }
 
@@ -404,6 +484,7 @@ function Notifications() {
 
     generated.sort((a, b) => {
       const severityOrder = { high: 3, medium: 2, low: 1 };
+
       return (severityOrder[b.severity] || 0) - (severityOrder[a.severity] || 0);
     });
 
@@ -438,6 +519,26 @@ function Notifications() {
     };
   }, [todos, expenses, salaryData, todayDate, currentTime]);
 
+  // NEW: show alert popup when finance warning is generated
+  useEffect(() => {
+    if (loading) return;
+
+    const popupNotification = summary.notifications.find(
+      (item) => item.popup && item.group === "warnings"
+    );
+
+    if (!popupNotification) return;
+
+    const popupKey = `budget-popup-${popupNotification.id}-${popupNotification.message}-${popupNotification.detail}`;
+
+    if (sessionStorage.getItem(popupKey)) return;
+
+    sessionStorage.setItem(popupKey, "shown");
+    setBudgetPopup(popupNotification);
+
+    window.alert(`${popupNotification.title}\n\n${popupNotification.message}`);
+  }, [summary.notifications, loading]);
+
   const filterTabs = [
     { key: "all", label: "All" },
     { key: "finance", label: "Finance" },
@@ -471,7 +572,8 @@ function Notifications() {
   }, [activeFilter, summary.notifications]);
 
   const highPriorityCount = useMemo(() => {
-    return summary.notifications.filter((item) => item.severity === "high").length;
+    return summary.notifications.filter((item) => item.severity === "high")
+      .length;
   }, [summary.notifications]);
 
   const statCards = [
@@ -520,6 +622,47 @@ function Notifications() {
 
   return (
     <div className="space-y-5">
+      {/* NEW: Website warning popup */}
+      <AnimatePresence>
+        {budgetPopup && (
+          <motion.div
+            initial={{ opacity: 0, y: -20, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -20, scale: 0.96 }}
+            transition={{ duration: 0.25, ease: "easeOut" }}
+            className="fixed right-4 top-4 z-50 w-[calc(100%-2rem)] max-w-sm rounded-2xl border border-[var(--danger-border)] bg-[var(--danger-bg)] p-4 shadow-2xl sm:right-6 sm:top-6"
+          >
+            <div className="flex items-start gap-3">
+              <div className="rounded-xl bg-white/40 p-2 text-[var(--danger-text)]">
+                <AlertTriangle size={20} />
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <h3 className="text-sm font-semibold text-[var(--danger-text)]">
+                  {budgetPopup.title}
+                </h3>
+
+                <p className="mt-1 text-sm leading-5 text-[var(--danger-text)]">
+                  {budgetPopup.message}
+                </p>
+
+                <p className="mt-1 text-xs leading-5 text-[var(--danger-text)]/80">
+                  {budgetPopup.detail}
+                </p>
+
+                <button
+                  type="button"
+                  onClick={() => setBudgetPopup(null)}
+                  className="mt-3 rounded-lg bg-[var(--danger-text)] px-3 py-1.5 text-xs font-semibold text-white transition hover:opacity-90"
+                >
+                  Okay
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <motion.section
         {...sectionMotion}
         className="theme-hero overflow-hidden rounded-[24px] p-4 sm:rounded-[26px] sm:p-5 md:p-6"
@@ -541,8 +684,12 @@ function Notifications() {
               This section reads your current Todo, Expenses, and Salary data to
               generate real warnings and progress reminders.
             </p>
+
             <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-[var(--text-muted)]">
-              <span>Last synced: {formattedLastUpdated} ({relativeLastUpdated})</span>
+              <span>
+                Last synced: {formattedLastUpdated} ({relativeLastUpdated})
+              </span>
+
               <span
                 className={`inline-flex items-center gap-2 rounded-full border px-2 py-0.5 ${
                   isApiReachable
@@ -582,12 +729,16 @@ function Notifications() {
               Todo time reminders refresh automatically, and finance alerts react
               to your latest saved data.
             </p>
+
             <button
               type="button"
               onClick={() => fetchAll({ force: true })}
               className="mt-3 inline-flex items-center gap-2 rounded-xl border border-[var(--border-soft)] bg-[var(--panel-3)] px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] transition hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
             >
-              <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
+              <RefreshCw
+                size={14}
+                className={refreshing ? "animate-spin" : ""}
+              />
               {refreshing ? "Refreshing..." : "Refresh now"}
             </button>
           </motion.div>
@@ -621,6 +772,7 @@ function Notifications() {
                   <p className="text-sm text-[var(--text-secondary)]">
                     {card.title}
                   </p>
+
                   <h2
                     className={`mt-2 break-words text-xl font-semibold sm:text-2xl ${card.valueClass}`}
                   >
@@ -655,11 +807,14 @@ function Notifications() {
               <Filter size={14} />
               Filter Feed
             </div>
+
             <h2 className="text-lg font-semibold text-[var(--text-primary)]">
               Notification Filters
             </h2>
+
             <p className="text-sm text-[var(--text-secondary)]">
-              Switch between finance alerts, todo reminders, warnings, and updates
+              Switch between finance alerts, todo reminders, warnings, and
+              updates
             </p>
           </div>
 
@@ -698,10 +853,12 @@ function Notifications() {
           <div className="rounded-2xl bg-[var(--status-neutral-bg)] p-2.5 text-[var(--text-primary)]">
             <Bell size={18} />
           </div>
+
           <div className="min-w-0">
             <h2 className="text-lg font-semibold text-[var(--text-primary)]">
               Notification Feed
             </h2>
+
             <p className="text-sm text-[var(--text-secondary)]">
               Built from current salary, expenses, and todo activity
             </p>
@@ -721,6 +878,7 @@ function Notifications() {
             <AnimatePresence>
               {filteredNotifications.map((item, index) => {
                 const Icon = item.icon;
+
                 const severityLabel =
                   item.severity === "high"
                     ? "High"
