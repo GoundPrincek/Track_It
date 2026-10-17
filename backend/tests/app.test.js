@@ -18,7 +18,8 @@ const mockMatches = (record, filter) =>
 
 const mockQuery = (records, firstOnly = false) => {
   let maximum = Infinity;
-  const values = () => records.slice(0, firstOnly ? Math.min(maximum, 1) : maximum);
+  const values = () =>
+    firstOnly ? records[0] || null : records.slice(0, maximum);
   const query = {
     sort() {
       return this;
@@ -402,6 +403,7 @@ describe("user-scoped resources and safe failures", () => {
   test("upload parser failures return a safe message without parser details", async () => {
     const user = await createUser({ _id: USER_A_ID });
     const token = tokenFor(user);
+    const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
     const response = await request(app)
       .post("/api/upload/pdf")
       .set("Authorization", `Bearer ${token}`)
@@ -413,6 +415,7 @@ describe("user-scoped resources and safe failures", () => {
     expect(response.status).toBe(500);
     expect(response.body.message).toBe("Unable to process the uploaded file.");
     expect(JSON.stringify(response.body)).not.toContain("private parser implementation details");
+    errorSpy.mockRestore();
   });
 
   test("unknown routes use the centralized JSON error format", async () => {

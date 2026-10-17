@@ -72,11 +72,13 @@ export const fetchDashboardData = async ({ force = false } = {}) => {
       failedEndpoints,
     };
 
-    if (
-      identity &&
-      dashboardCache.generation(identity) === requestGeneration
-    ) {
-      dashboardCache.set(identity, payload, fetchedAt);
+    if (identity) {
+      dashboardCache.setIfCurrentGeneration(
+        identity,
+        requestGeneration,
+        payload,
+        fetchedAt
+      );
     }
 
     return payload;

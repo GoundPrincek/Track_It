@@ -30,9 +30,10 @@ test("an in-flight request cleared by logout cannot repopulate the cache", () =>
   const requestGeneration = cache.generation(identity);
 
   cache.clear();
-  if (cache.generation(identity) === requestGeneration) {
-    cache.set(identity, { secret: "stale" });
-  }
+  const wasCached = cache.setIfCurrentGeneration(identity, requestGeneration, {
+    secret: "stale",
+  });
 
+  assert.equal(wasCached, false);
   assert.equal(cache.get(identity), undefined);
 });

@@ -25,6 +25,11 @@ export const createDashboardCache = (ttlMs = 15000) => {
     set(identity, value, fetchedAt = Date.now()) {
       values.set(identity, { value, fetchedAt });
     },
+    setIfCurrentGeneration(identity, generation, value, fetchedAt = Date.now()) {
+      if (generationFor(identity) !== generation) return false;
+      values.set(identity, { value, fetchedAt });
+      return true;
+    },
     getRequest(identity) {
       return requests.get(identity);
     },
