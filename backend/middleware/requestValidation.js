@@ -118,7 +118,10 @@ const validateRequest = (req, res, next) => {
     if (body.preferences !== undefined && !isPlainObject(body.preferences)) {
       addError("preferences", "Preferences must be an object.");
     }
-  } else if (path === "/api/salary" && ["POST", "PUT"].includes(req.method)) {
+  } else if (
+    (path === "/api/salary" || /^\/api\/salary\/[^/]+$/.test(path)) &&
+    ["POST", "PUT"].includes(req.method)
+  ) {
     if (!isPositiveNumber(body.salary)) addError("salary", "Salary must be a finite positive number.");
     for (const field of ["needs", "wants", "savings"]) {
       if (body[field] !== undefined && !isNonNegativeNumber(body[field])) {

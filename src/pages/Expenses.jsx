@@ -527,19 +527,6 @@ function Expenses() {
     }
   };
 
-  const handleImportedCategoryChange = (id, value) => {
-    setImportedTransactions((prev) =>
-      prev.map((item) =>
-        item.id === id
-          ? {
-              ...item,
-              category: value,
-            }
-          : item
-      )
-    );
-  };
-
   const handleSaveImportedExpenses = async () => {
     try {
       if (!importedTransactions.length) {

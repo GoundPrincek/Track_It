@@ -149,7 +149,19 @@ TrackIt follows a modular **MERN architecture**.
 - `/api/todos`
 - `/api/upload`
 - `/api/notifications`
-- `/api/goals`
+
+Goals are currently represented by the todos module; there is no separate `/api/goals` route.
+
+### Backend Environment
+
+The backend reads its configuration from `backend/.env`. Copy the variable names and placeholder values from `backend/.env.example`, then provide a MongoDB connection string as `MONGODB_URI` and a private `JWT_SECRET`. `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, and `SMTP_PASS` are optional and are used for password-reset email delivery. Never commit `backend/.env` or production secrets.
+
+### Authentication Session Behavior
+
+- The API issues signed JWTs that expire after seven days. The frontend sends them in the `Authorization: Bearer <token>` header.
+- Protected requests verify the signature and expiry and check the user's token version.
+- Existing tokens without a token-version claim remain valid while the user's version is zero. Changing or resetting a password increments the version and invalidates earlier tokens.
+- A successful password change returns a replacement token for the current session. Password reset requires the user to log in again.
 
 ---
 

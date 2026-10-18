@@ -18,7 +18,11 @@ const errorHandler = (error, req, res, next) => {
 
   const statusCode = Number(error.statusCode || error.status);
   const validStatus = statusCode >= 400 && statusCode <= 599;
-  const status = validStatus ? statusCode : 500;
+  const status = validStatus
+    ? statusCode
+    : error.name === "MulterError"
+      ? 400
+      : 500;
   const isSafeClientError = error.isOperational === true && status < 500;
   let message = isSafeClientError ? error.message : "Something went wrong";
 

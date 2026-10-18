@@ -75,7 +75,7 @@ function Settings({ theme = "dark", setTheme = () => {} }) {
         } catch {
           // ignore localStorage sync errors
         }
-      } catch (err) {
+      } catch {
         const savedUser = localStorage.getItem("user");
         try {
           const parsed = savedUser ? JSON.parse(savedUser) : null;

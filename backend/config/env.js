@@ -3,6 +3,28 @@ const dotenv = require("dotenv");
 
 dotenv.config({ path: path.resolve(__dirname, "..", ".env") });
 
+const validateMongoUri = (mongoUri) => {
+  let parsedUri;
+
+  try {
+    parsedUri = new URL(mongoUri);
+  } catch {
+    throw new Error(
+      "Invalid environment variable: MONGODB_URI must be a valid MongoDB connection string."
+    );
+  }
+
+  if (
+    !["mongodb:", "mongodb+srv:"].includes(parsedUri.protocol) ||
+    !parsedUri.hostname ||
+    (parsedUri.protocol === "mongodb+srv:" && parsedUri.port)
+  ) {
+    throw new Error(
+      "Invalid environment variable: MONGODB_URI must be a valid MongoDB connection string."
+    );
+  }
+};
+
 const readConfig = (env = process.env) => {
   const parsedPort = Number(env.PORT || 5000);
   if (!Number.isInteger(parsedPort) || parsedPort < 1 || parsedPort > 65535) {
@@ -29,6 +51,7 @@ const loadConfig = (env = process.env) => {
   if (!config.mongoUri) {
     throw new Error("Missing required environment variable: MONGODB_URI");
   }
+  validateMongoUri(config.mongoUri);
   if (!config.jwtSecret.trim()) {
     throw new Error("Missing required environment variable: JWT_SECRET");
   }

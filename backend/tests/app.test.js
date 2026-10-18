@@ -184,6 +184,13 @@ describe("authentication and input validation", () => {
     expect(registration.status).toBe(201);
     expect(registration.body.user.password).toBeUndefined();
 
+    const invalidLogin = await request(app).post("/api/auth/login").send({
+      email: "new-user@example.com",
+      password: "incorrect-password",
+    });
+    expect(invalidLogin.status).toBe(400);
+    expect(invalidLogin.body.message).toBe("Invalid credentials");
+
     const login = await request(app).post("/api/auth/login").send({
       email: "new-user@example.com",
       password: "secure-pass-123",

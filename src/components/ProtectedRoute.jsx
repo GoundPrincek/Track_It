@@ -20,7 +20,7 @@ function ProtectedRoute({ children }) {
 
   try {
     JSON.parse(user);
-  } catch (err) {
+  } catch {
     clearStoredAuth();
 
     return <Navigate to="/login" replace />;

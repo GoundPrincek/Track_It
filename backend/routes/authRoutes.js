@@ -2,6 +2,7 @@ const express = require("express");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
+const { performance } = require("node:perf_hooks");
 const nodemailer = require("nodemailer");
 const router = express.Router();
 const User = require("../models/User");
@@ -77,6 +78,45 @@ router.post("/register", async (req, res) => {
 
 // POST /api/auth/login
 router.post("/login", async (req, res) => {
+  const timingEnabled = process.env.NODE_ENV === "development";
+  const requestStartedAt = timingEnabled ? performance.now() : null;
+  const stageDurations = timingEnabled
+    ? {
+        userLookupMs: null,
+        passwordCompareMs: null,
+        jwtSigningMs: null,
+      }
+    : null;
+
+  if (timingEnabled) {
+    res.once("finish", () => {
+      const totalMs = performance.now() - requestStartedAt;
+      const measuredStageMs = Object.values(stageDurations).reduce(
+        (total, duration) => total + (duration || 0),
+        0
+      );
+
+      console.info("[dev-timing] POST /api/auth/login", {
+        requestId: req.requestId || "unavailable",
+        status: res.statusCode,
+        totalMs: Number(totalMs.toFixed(2)),
+        userLookupMs:
+          stageDurations.userLookupMs === null
+            ? null
+            : Number(stageDurations.userLookupMs.toFixed(2)),
+        passwordCompareMs:
+          stageDurations.passwordCompareMs === null
+            ? null
+            : Number(stageDurations.passwordCompareMs.toFixed(2)),
+        jwtSigningMs:
+          stageDurations.jwtSigningMs === null
+            ? null
+            : Number(stageDurations.jwtSigningMs.toFixed(2)),
+        otherMs: Number(Math.max(0, totalMs - measuredStageMs).toFixed(2)),
+      });
+    });
+  }
+
   try {
     const email = String(req.body?.email || "")
       .trim()
@@ -87,19 +127,32 @@ router.post("/login", async (req, res) => {
       return res.status(400).json({ message: "Email and password are required" });
     }
 
+    const userLookupStartedAt = timingEnabled ? performance.now() : null;
     const user = await User.findOne({ email });
+    if (timingEnabled) {
+      stageDurations.userLookupMs = performance.now() - userLookupStartedAt;
+    }
 
     if (!user) {
       return res.status(400).json({ message: "Invalid credentials" });
     }
 
+    const passwordCompareStartedAt = timingEnabled ? performance.now() : null;
     const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (timingEnabled) {
+      stageDurations.passwordCompareMs =
+        performance.now() - passwordCompareStartedAt;
+    }
 
     if (!isPasswordValid) {
       return res.status(400).json({ message: "Invalid credentials" });
     }
 
+    const jwtSigningStartedAt = timingEnabled ? performance.now() : null;
     const token = createToken(user);
+    if (timingEnabled) {
+      stageDurations.jwtSigningMs = performance.now() - jwtSigningStartedAt;
+    }
 
     res.json({
       message: "Login successful",
@@ -107,7 +160,10 @@ router.post("/login", async (req, res) => {
       token,
     });
   } catch (err) {
-    console.log("Login error:", err.message);
+    console.error("Login failed.", {
+      errorName: err.name || "Error",
+      errorCode: err.code || undefined,
+    });
     res.status(500).json({ message: "Login failed" });
   }
 });
